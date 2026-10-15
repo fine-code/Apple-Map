@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Apples &amp; Apple Stores — United States</title>
+<link rel="stylesheet" href="styles.css">
+<script src="https://unpkg.com/d3@7.9.0/dist/d3.min.js" integrity="sha384-CjloA8y00+1SDAUkjs099PVfnY2KmDC2BZnws9kh8D/lX1s46w6EPhpXdqMfjK6i" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/topojson-client@3.1.0/dist/topojson-client.min.js" integrity="sha384-Ukv1p/xTma6P4/2bY5KzWBw+ydSpXmhCMtyciIQVDJ1RmOxtCYNMF1uXT9T63H67" crossorigin="anonymous"></script>
+<style>
+  a:hover { color: var(--color-accent-700); }
+  .page { max-width: 1440px; margin: 0 auto; padding: var(--space-6) var(--space-6) var(--space-8); }
+  header { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-4) var(--space-8); margin-bottom: var(--space-6); }
+  header h1 { margin: 0; font-size: clamp(30px, 4vw, 46px); max-width: 15ch; text-wrap: balance; }
+  header p { margin: 0; max-width: 52ch; color: var(--color-neutral-800); text-wrap: pretty; }
+  .layout { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: var(--space-6); align-items: start; }
+  @media (max-width: 980px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+  .toolbar { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; margin-bottom: var(--space-3); }
+  .toolbar form { display: flex; gap: var(--space-2); flex: 1 1 280px; min-width: 0; }
+  .toolbar .input { flex: 1; min-width: 0; }
+  select.input { width: auto; flex: 0 1 200px; appearance: none; padding-right: 30px; cursor: pointer;
+    background-image: linear-gradient(45deg, transparent 50%, var(--color-text) 50%), linear-gradient(135deg, var(--color-text) 50%, transparent 50%);
+    background-position: calc(100% - 17px) 55%, calc(100% - 12px) 55%; background-size: 5px 5px; background-repeat: no-repeat; }
+  .layers { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-bottom: var(--space-3); }
+  .chip { display: inline-flex; align-items: center; gap: 8px; font: inherit; font-size: 13px; cursor: pointer;
+    padding: 6px 14px 6px 10px; border-radius: 999px; border: 1px solid var(--color-divider); background: transparent; color: var(--color-text); }
+  .chip:hover { background: color-mix(in srgb, var(--color-text) 7%, transparent); }
+  .chip[aria-pressed="false"] { opacity: .5; }
+  .chip[aria-pressed="false"] .sw { filter: grayscale(1); }
+  .sw { width: 12px; height: 12px; flex: none; }
+  .sw-store { border-radius: 50%; background: var(--color-accent); }
+  .sw-orch { background: var(--color-accent-2-800); transform: rotate(45deg) scale(.82); border-radius: 2px; }
+  .sw-dens { border-radius: 4px; background: linear-gradient(90deg, var(--color-accent-2-200), var(--color-accent-2-600)); width: 22px; }
+  .mapwrap { position: relative; background: var(--color-neutral-100); border-radius: calc(var(--radius-lg) * 1.15); overflow: hidden; }
+  .mapwrap svg { display: block; width: 100%; height: auto; cursor: grab; }
+  .mapwrap svg:active { cursor: grabbing; }
+  .state { stroke: var(--color-neutral-100); stroke-linejoin: round; transition: fill .3s, opacity .3s; }
+  .zoomctl { position: absolute; top: var(--space-3); right: var(--space-3); display: flex; flex-direction: column; gap: 6px; }
+  .zoomctl .btn { background: var(--color-bg); box-shadow: var(--shadow-sm); border-radius: 999px; font-size: 18px; font-family: var(--font-body); }
+  .zoomctl .btn:hover { background: var(--color-accent-100); }
+  .legend { position: absolute; left: var(--space-4); bottom: var(--space-4); background: color-mix(in srgb, var(--color-bg) 92%, transparent);
+    border-radius: var(--radius-md); padding: 10px 14px; font-size: 12px; display: grid; gap: 6px; box-shadow: var(--shadow-sm); }
+  .legend .ramp { display: flex; height: 8px; width: 160px; border-radius: 999px; overflow: hidden; }
+  .legend .ramp span { flex: 1; }
+  .legend .ticks { display: flex; justify-content: space-between; color: var(--color-neutral-700); font-size: 11px; }
+  @media (max-width: 640px) { .legend { position: static; margin: var(--space-3); } }
+  .tip { position: absolute; pointer-events: none; background: var(--color-text); color: var(--color-bg); font-size: 12px; line-height: 1.35;
+    padding: 7px 11px; border-radius: 12px; max-width: 240px; opacity: 0; transform: translate(-50%, calc(-100% - 12px)); transition: opacity .12s; white-space: normal; }
+  .tip b { font-weight: 700; display: block; font-size: 13px; }
+  .note { font-size: 12px; color: var(--color-neutral-700); margin-top: var(--space-3); max-width: 80ch; }
+  aside { display: grid; gap: var(--space-4); }
+  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); }
+  .stat { background: var(--color-surface); border-radius: var(--radius-lg); padding: var(--space-3) var(--space-4); }
+  .stat .n { font-family: var(--font-heading); font-size: 30px; line-height: 1.05; }
+  .stat .l { font-size: 12px; color: var(--color-neutral-800); }
+  .stat.store .n { color: var(--color-accent-700); }
+  .stat.orch .n { color: var(--color-accent-2-700); }
+  .story { font-size: 14px; color: var(--color-neutral-900); text-wrap: pretty; margin: 0; }
+  .story strong { font-weight: 700; }
+  .panel h4 { font-size: 17px; margin-bottom: var(--space-2); }
+  .rank { display: grid; gap: 4px; }
+  .row { display: grid; grid-template-columns: 34px minmax(0,1fr) 62px; align-items: center; gap: 10px; font-size: 13px;
+    padding: 3px 8px; margin: 0 -8px; border-radius: 10px; cursor: pointer; background: none; border: 0; font-family: inherit; color: inherit; text-align: left; width: calc(100% + 16px); }
+  .row:hover { background: color-mix(in srgb, var(--color-text) 6%, transparent); }
+  .row .ab { font-weight: 700; color: var(--color-neutral-800); }
+  .row .bar { height: 10px; border-radius: 999px; background: var(--color-neutral-200); overflow: hidden; }
+  .row .bar i { display: block; height: 100%; border-radius: 999px; }
+  .row .v { text-align: right; font-variant-numeric: tabular-nums; color: var(--color-neutral-800); }
+  .tabs { display: inline-flex; border: 1px solid var(--color-divider); border-radius: 999px; overflow: hidden; margin-bottom: var(--space-3); }
+  .tabs button { font: inherit; font-size: 13px; padding: 6px 14px; background: none; border: 0; cursor: pointer; color: inherit; }
+  .tabs button + button { border-left: 1px solid var(--color-divider); }
+  .tabs button[aria-selected="true"] { background: var(--color-accent); color: var(--color-bg); }
+  .tabs button[aria-selected="false"]:hover { background: color-mix(in srgb, var(--color-text) 7%, transparent); }
+  .card .card-title { font-size: 19px; }
+  .near { display: grid; gap: 8px; font-size: 13px; }
+  .near div { display: flex; gap: 10px; align-items: baseline; }
+  .near .sw { transform: translateY(1px); }
+  .near .sw-orch { transform: translateY(1px) rotate(45deg) scale(.82); }
+  .near .d { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--color-neutral-800); white-space: nowrap; }
+  .list { max-height: 260px; overflow: auto; display: grid; gap: 2px; font-size: 13px; margin: 0 -8px; }
+  .list button { display: flex; gap: 10px; align-items: center; text-align: left; font: inherit; background: none; border: 0; color: inherit; padding: 4px 8px; border-radius: 10px; cursor: pointer; }
+  .list button:hover { background: color-mix(in srgb, var(--color-text) 6%, transparent); }
+  .list .c { margin-left: auto; color: var(--color-neutral-700); font-size: 12px; white-space: nowrap; }
+  .msg { font-size: 12px; color: var(--color-accent-700); min-height: 1em; margin: -4px 0 var(--space-2) 4px; }
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <h1>Apple Stores &amp; apple orchards</h1>
+    <p>Two very different apples. One kind follows people and shopping malls, the other follows cold winters and river valleys. Toggle the layers, pick a state, or find the nearest of each to you.</p>
+  </header>
+
+  <div class="layout">
+    <main>
+      <div class="toolbar">
+        <form id="search" autocomplete="off">
+          <input class="input" id="q" placeholder="City, state or ZIP code" aria-label="Search by city, state or ZIP">
+          <button class="btn btn-secondary" type="submit">Search</button>
+        </form>
+        <button class="btn btn-primary" id="locate" type="button">Nearest to me</button>
+        <select class="input" id="stateSel" aria-label="Filter by state"><option value="">All states</option></select>
+      </div>
+      <div class="msg" id="msg"></div>
+      <div class="layers">
+        <button class="chip" data-layer="stores" aria-pressed="true"><span class="sw sw-store"></span>Apple Stores</button>
+        <button class="chip" data-layer="orchards" aria-pressed="true"><span class="sw sw-orch"></span>Notable orchards</button>
+        <button class="chip" data-layer="density" aria-pressed="true"><span class="sw sw-dens"></span>Orchard acreage by state</button>
+      </div>
+      <div class="mapwrap" id="mapwrap">
+        <svg id="map" viewBox="0 0 975 610" role="img" aria-label="Map of the United States"></svg>
+        <div class="zoomctl">
+          <button class="btn btn-icon" id="zin" aria-label="Zoom in">+</button>
+          <button class="btn btn-icon" id="zout" aria-label="Zoom out">−</button>
+          <button class="btn btn-icon" id="zreset" aria-label="Reset view" style="font-size:13px">⤢</button>
+        </div>
+        <div class="legend" id="legend">
+          <div style="font-weight:700">Apple acreage per state</div>
+          <div class="ramp" id="ramp"></div>
+          <div class="ticks"><span>&lt;100</span><span>1k</span><span>10k</span><span>150k+ acres</span></div>
+        </div>
+        <div class="tip" id="tip"></div>
+      </div>
+      <p class="note">Store locations are approximate and reflect Apple’s U.S. retail footprint as of 2026. Orchard acreage per state is rounded from the USDA 2022 Census of Agriculture. Orchard pins are a curated set of well-known pick-your-own farms, not a complete list. ZIP lookup uses zippopotam.us.</p>
+    </main>
+
+    <aside id="aside"></aside>
+  </div>
+</div>
+
+<script>
+const STORES = [
+["The Summit","Birmingham","AL",33.448,-86.728],["Bridge Street","Huntsville","AL",34.71,-86.67],
+["Scottsdale Fashion Square","Scottsdale","AZ",33.502,-111.929],["Scottsdale Quarter","Scottsdale","AZ",33.62,-111.925],["Chandler Fashion Center","Chandler","AZ",33.301,-111.897],["Arrowhead","Glendale","AZ",33.64,-112.226],["La Encantada","Tucson","AZ",32.318,-110.93],
+["Pinnacle Hills","Rogers","AR",36.31,-94.18],
+["Apple Park Visitor Center","Cupertino","CA",37.332,-122.005],["Valley Fair","San Jose","CA",37.325,-121.946],["Oakridge","San Jose","CA",37.253,-121.861],["Palo Alto","Palo Alto","CA",37.444,-122.162],["Stanford","Palo Alto","CA",37.443,-122.171],["Hillsdale","San Mateo","CA",37.538,-122.3],["Burlingame","Burlingame","CA",37.578,-122.346],["Union Square","San Francisco","CA",37.788,-122.407],["Stonestown","San Francisco","CA",37.728,-122.476],["Corte Madera","Corte Madera","CA",37.926,-122.517],["Bay Street","Emeryville","CA",37.835,-122.293],["Fourth Street","Berkeley","CA",37.87,-122.3],["Broadway Plaza","Walnut Creek","CA",37.895,-122.059],["Stoneridge","Pleasanton","CA",37.694,-121.928],["Santa Rosa","Santa Rosa","CA",38.437,-122.71],["Los Gatos","Los Gatos","CA",37.226,-121.98],["Galleria","Roseville","CA",38.773,-121.268],["Arden Fair","Sacramento","CA",38.601,-121.426],["Fresno Fashion Fair","Fresno","CA",36.808,-119.773],["State Street","Santa Barbara","CA",34.418,-119.698],["Third Street Promenade","Santa Monica","CA",34.016,-118.496],["Century City","Los Angeles","CA",34.058,-118.418],["The Grove","Los Angeles","CA",34.072,-118.358],["Beverly Center","Los Angeles","CA",34.075,-118.377],["Tower Theatre","Los Angeles","CA",34.045,-118.255],["Manhattan Village","Manhattan Beach","CA",33.89,-118.393],["Del Amo","Torrance","CA",33.831,-118.348],["Glendale Galleria","Glendale","CA",34.146,-118.256],["Pasadena","Pasadena","CA",34.145,-118.15],["Santa Anita","Arcadia","CA",34.135,-118.05],["Sherman Oaks","Los Angeles","CA",34.158,-118.466],["Northridge","Los Angeles","CA",34.237,-118.535],["Topanga","Los Angeles","CA",34.191,-118.603],["Valencia Town Center","Santa Clarita","CA",34.415,-118.556],["The Oaks","Thousand Oaks","CA",34.183,-118.881],["South Coast Plaza","Costa Mesa","CA",33.69,-117.889],["Irvine Spectrum","Irvine","CA",33.65,-117.744],["Fashion Island","Newport Beach","CA",33.616,-117.876],["Mission Viejo","Mission Viejo","CA",33.561,-117.67],["Brea Mall","Brea","CA",33.917,-117.886],["Los Cerritos","Cerritos","CA",33.86,-118.095],["Victoria Gardens","Rancho Cucamonga","CA",34.111,-117.53],["Galleria at Tyler","Riverside","CA",33.909,-117.459],["UTC","San Diego","CA",32.871,-117.211],["Fashion Valley","San Diego","CA",32.768,-117.167],["Carlsbad","Carlsbad","CA",33.12,-117.31],["North County","Escondido","CA",33.07,-117.07],["Otay Ranch","Chula Vista","CA",32.623,-116.968],["El Paseo","Palm Desert","CA",33.72,-116.37],
+["Cherry Creek","Denver","CO",39.718,-104.953],["Park Meadows","Lone Tree","CO",39.563,-104.875],["FlatIron Crossing","Broomfield","CO",39.93,-105.135],["Twenty Ninth Street","Boulder","CO",40.017,-105.258],["Aspen Grove","Littleton","CO",39.59,-105.024],
+["Blue Back Square","West Hartford","CT",41.76,-72.74],["Westfarms","Farmington","CT",41.72,-72.76],["Greenwich Avenue","Greenwich","CT",41.03,-73.627],["Danbury Fair","Danbury","CT",41.383,-73.524],["Trumbull","Trumbull","CT",41.23,-73.22],["Connecticut Post","Milford","CT",41.233,-73.035],
+["Carnegie Library","Washington","DC",38.903,-77.022],["Georgetown","Washington","DC",38.905,-77.064],
+["Christiana Mall","Newark","DE",39.677,-75.651],
+["Aventura","Aventura","FL",25.958,-80.143],["Brickell City Centre","Miami","FL",25.767,-80.193],["Lincoln Road","Miami Beach","FL",25.79,-80.135],["Dadeland","Miami","FL",25.69,-80.313],["The Falls","Miami","FL",25.6,-80.37],["The Galleria","Fort Lauderdale","FL",26.137,-80.105],["Town Center","Boca Raton","FL",26.365,-80.13],["The Gardens","Palm Beach Gardens","FL",26.846,-80.089],["Wellington Green","Wellington","FL",26.645,-80.205],["The Florida Mall","Orlando","FL",28.445,-81.395],["Millenia","Orlando","FL",28.485,-81.43],["Altamonte","Altamonte Springs","FL",28.665,-81.37],["International Plaza","Tampa","FL",27.963,-82.52],["Brandon","Brandon","FL",27.94,-82.33],["St. Johns Town Center","Jacksonville","FL",30.257,-81.528],["Waterside Shops","Naples","FL",26.212,-81.8],["UTC Sarasota","Sarasota","FL",27.384,-82.442],
+["Lenox Square","Atlanta","GA",33.846,-84.362],["Perimeter","Atlanta","GA",33.924,-84.34],["Avalon","Alpharetta","GA",34.07,-84.275],["Mall of Georgia","Buford","GA",34.065,-83.99],["Cumberland","Atlanta","GA",33.88,-84.469],
+["Ala Moana","Honolulu","HI",21.291,-157.843],["Kahala","Honolulu","HI",21.277,-157.786],
+["Boise Towne Square","Boise","ID",43.607,-116.284],
+["Michigan Avenue","Chicago","IL",41.889,-87.624],["Lincoln Park","Chicago","IL",41.913,-87.648],["Old Orchard","Skokie","IL",42.064,-87.75],["Northbrook Court","Northbrook","IL",42.15,-87.82],["Woodfield","Schaumburg","IL",42.046,-88.037],["Oakbrook","Oak Brook","IL",41.85,-87.953],["Deer Park","Deer Park","IL",42.17,-88.08],["Orland Square","Orland Park","IL",41.62,-87.85],
+["Keystone","Indianapolis","IN",39.917,-86.107],
+["Jordan Creek","West Des Moines","IA",41.56,-93.8],
+["Town Center","Leawood","KS",38.913,-94.64],
+["Oxmoor","Louisville","KY",38.24,-85.62],["Fayette Mall","Lexington","KY",37.985,-84.53],
+["Lakeside","Metairie","LA",30.002,-90.152],["Mall of Louisiana","Baton Rouge","LA",30.39,-91.06],
+["Towson Town Center","Towson","MD",39.403,-76.6],["Annapolis","Annapolis","MD",38.988,-76.543],["Bethesda Row","Bethesda","MD",38.982,-77.097],["Montgomery","Bethesda","MD",39.024,-77.146],["Columbia","Columbia","MD",39.215,-76.862],
+["Boylston Street","Boston","MA",42.35,-71.08],["CambridgeSide","Cambridge","MA",42.367,-71.076],["Chestnut Hill","Newton","MA",42.32,-71.168],["Natick","Natick","MA",42.3,-71.383],["Burlington","Burlington","MA",42.483,-71.214],["Derby Street","Hingham","MA",42.18,-70.909],["Northshore","Peabody","MA",42.54,-70.94],["Holyoke","Holyoke","MA",42.17,-72.64],["Legacy Place","Dedham","MA",42.23,-71.18],
+["Somerset","Troy","MI",42.56,-83.184],["Twelve Oaks","Novi","MI",42.49,-83.47],["Briarwood","Ann Arbor","MI",42.24,-83.745],["Woodland","Grand Rapids","MI",42.91,-85.58],
+["Mall of America","Bloomington","MN",44.854,-93.242],["Southdale","Edina","MN",44.879,-93.326],["Ridgedale","Minnetonka","MN",44.966,-93.441],["Rosedale","Roseville","MN",45.012,-93.17],
+["Renaissance","Ridgeland","MS",32.43,-90.13],
+["Country Club Plaza","Kansas City","MO",39.04,-94.594],["West County","St. Louis","MO",38.6,-90.43],["Saint Louis Galleria","St. Louis","MO",38.632,-90.346],
+["Village Pointe","Omaha","NE",41.26,-96.18],
+["Forum Shops","Las Vegas","NV",36.117,-115.175],["Fashion Show","Las Vegas","NV",36.127,-115.17],["Town Square","Las Vegas","NV",36.07,-115.18],["Downtown Summerlin","Las Vegas","NV",36.15,-115.33],["Meadowood","Reno","NV",39.48,-119.79],
+["Rockingham Park","Salem","NH",42.78,-71.21],["Pheasant Lane","Nashua","NH",42.7,-71.44],
+["Short Hills","Short Hills","NJ",40.74,-74.364],["Garden State Plaza","Paramus","NJ",40.917,-74.076],["Willowbrook","Wayne","NJ",40.886,-74.257],["Freehold Raceway","Freehold","NJ",40.248,-74.304],["Menlo Park","Edison","NJ",40.548,-74.335],["Bridgewater","Bridgewater","NJ",40.584,-74.618],["Cherry Hill","Cherry Hill","NJ",39.94,-75.03],["Rockaway","Rockaway","NJ",40.9,-74.55],["Woodbridge","Woodbridge","NJ",40.56,-74.29],["MarketFair","Princeton","NJ",40.29,-74.68],
+["ABQ Uptown","Albuquerque","NM",35.105,-106.57],
+["Fifth Avenue","New York","NY",40.764,-73.973],["Grand Central","New York","NY",40.753,-73.977],["Upper West Side","New York","NY",40.776,-73.982],["Upper East Side","New York","NY",40.768,-73.965],["SoHo","New York","NY",40.725,-74.0],["World Trade Center","New York","NY",40.711,-74.011],["Williamsburg","Brooklyn","NY",40.72,-73.957],["Downtown Brooklyn","Brooklyn","NY",40.69,-73.983],["Queens Center","Queens","NY",40.734,-73.869],["Staten Island","Staten Island","NY",40.583,-74.166],["Roosevelt Field","Garden City","NY",40.738,-73.613],["Manhasset","Manhasset","NY",40.795,-73.698],["Walt Whitman","Huntington","NY",40.82,-73.41],["Smith Haven","Lake Grove","NY",40.86,-73.13],["Palisades","West Nyack","NY",41.098,-73.956],["Ridge Hill","Yonkers","NY",40.957,-73.869],["The Westchester","White Plains","NY",41.034,-73.76],["Crossgates","Albany","NY",42.69,-73.85],["Eastview","Rochester","NY",43.03,-77.44],["Destiny USA","Syracuse","NY",43.07,-76.17],["Walden Galleria","Buffalo","NY",42.91,-78.765],
+["SouthPark","Charlotte","NC",35.153,-80.83],["Northlake","Charlotte","NC",35.35,-80.86],["Crabtree","Raleigh","NC",35.84,-78.68],["Southpoint","Durham","NC",35.903,-78.943],["Friendly Center","Greensboro","NC",36.07,-79.84],
+["Easton","Columbus","OH",40.05,-82.917],["Polaris","Columbus","OH",40.146,-82.98],["Kenwood","Cincinnati","OH",39.2,-84.37],["Legacy Village","Lyndhurst","OH",41.52,-81.49],["Crocker Park","Westlake","OH",41.46,-81.95],["The Greene","Beavercreek","OH",39.69,-84.06],
+["Penn Square","Oklahoma City","OK",35.535,-97.53],["Woodland Hills","Tulsa","OK",36.067,-95.884],
+["Pioneer Place","Portland","OR",45.518,-122.677],["Washington Square","Tigard","OR",45.45,-122.78],["Bridgeport Village","Tualatin","OR",45.395,-122.75],["Clackamas","Happy Valley","OR",45.437,-122.567],
+["Walnut Street","Philadelphia","PA",39.95,-75.17],["King of Prussia","King of Prussia","PA",40.088,-75.39],["Suburban Square","Ardmore","PA",40.007,-75.288],["Willow Grove","Willow Grove","PA",40.14,-75.12],["Ross Park","Pittsburgh","PA",40.54,-80.01],["Lehigh Valley","Whitehall","PA",40.63,-75.49],["Park City","Lancaster","PA",40.07,-76.33],
+["Providence Place","Providence","RI",41.828,-71.415],
+["Haywood","Greenville","SC",34.84,-82.33],
+["Green Hills","Nashville","TN",36.106,-86.815],["CoolSprings","Franklin","TN",35.96,-86.81],["Wolfchase","Memphis","TN",35.2,-89.79],
+["Highland Village","Houston","TX",29.74,-95.44],["The Galleria","Houston","TX",29.739,-95.463],["Memorial City","Houston","TX",29.78,-95.54],["Baybrook","Friendswood","TX",29.54,-95.15],["First Colony","Sugar Land","TX",29.6,-95.61],["Willowbrook","Houston","TX",29.96,-95.54],["The Woodlands","The Woodlands","TX",30.16,-95.46],["NorthPark","Dallas","TX",32.868,-96.773],["Galleria Dallas","Dallas","TX",32.93,-96.82],["Willow Bend","Plano","TX",33.03,-96.83],["Stonebriar","Frisco","TX",33.1,-96.81],["Southlake","Southlake","TX",32.94,-97.13],["University Park Village","Fort Worth","TX",32.71,-97.36],["Barton Creek","Austin","TX",30.258,-97.808],["Domain Northside","Austin","TX",30.403,-97.725],["La Cantera","San Antonio","TX",29.593,-98.613],["North Star","San Antonio","TX",29.518,-98.5],
+["City Creek","Salt Lake City","UT",40.769,-111.893],["Fashion Place","Murray","UT",40.64,-111.887],["Station Park","Farmington","UT",40.98,-111.89],["University Place","Orem","UT",40.28,-111.68],
+["Tysons Corner","Tysons","VA",38.917,-77.221],["Clarendon","Arlington","VA",38.887,-77.093],["Pentagon City","Arlington","VA",38.862,-77.06],["Fair Oaks","Fairfax","VA",38.862,-77.358],["Reston Town Center","Reston","VA",38.958,-77.358],["Short Pump","Richmond","VA",37.65,-77.61],["Lynnhaven","Virginia Beach","VA",36.82,-76.07],["MacArthur Center","Norfolk","VA",36.85,-76.29],
+["University Village","Seattle","WA",47.663,-122.299],["Bellevue Square","Bellevue","WA",47.616,-122.203],["Alderwood","Lynnwood","WA",47.83,-122.27],["Southcenter","Tukwila","WA",47.459,-122.258],
+["Mayfair","Wauwatosa","WI",43.055,-88.04],["Hilldale","Madison","WI",43.07,-89.45]
+].map(([name,city,st,lat,lng])=>({type:"store",name:"Apple "+name,city,st,lat,lng}));
+
+const ORCHARDS = [
+["Smallwood's Harvest","Peshastin","WA",47.57,-120.6],["Bellewood Farms","Lynden","WA",48.94,-122.48],
+["Kiyokawa Family Orchards","Parkdale","OR",45.52,-121.6],
+["Williamson Orchards","Caldwell","ID",43.58,-116.78],
+["Apple Hill","Camino","CA",38.74,-120.68],["Gizdich Ranch","Watsonville","CA",36.95,-121.76],["Riley's Farm","Oak Glen","CA",34.05,-116.95],
+["Rowley's Red Barn","Santaquin","UT",39.97,-111.79],
+["Ya Ya Farm & Orchard","Longmont","CO",40.18,-105.13],
+["Apple Annie's Orchard","Willcox","AZ",32.21,-109.87],
+["Louisburg Cider Mill","Louisburg","KS",38.62,-94.69],
+["Wilson's Orchard","Iowa City","IA",41.73,-91.5],
+["Minnetonka Orchards","Minnetrista","MN",44.94,-93.72],["Pine Tree Apple Orchard","White Bear Lake","MN",45.11,-92.98],
+["Apple Holler","Sturtevant","WI",42.68,-87.93],
+["Jonamac Orchard","Malta","IL",41.93,-88.86],["Royal Oak Farm Orchard","Harvard","IL",42.42,-88.6],
+["County Line Orchard","Hobart","IN",41.53,-87.27],["Huber's Orchard","Starlight","IN",38.4,-85.86],
+["Robinette's Apple Haus","Grand Rapids","MI",43.03,-85.58],["Erwin Orchards","South Lyon","MI",42.47,-83.7],["Westview Orchards","Romeo","MI",42.8,-83.0],["Blake's Orchard","Armada","MI",42.85,-82.9],
+["Lynd's Fruit Farm","Pataskala","OH",40.04,-82.68],["Patterson Fruit Farm","Chesterland","OH",41.53,-81.33],
+["Evans Orchard","Georgetown","KY",38.27,-84.5],
+["The Apple Barn","Sevierville","TN",35.84,-83.56],
+["Mercier Orchards","Blue Ridge","GA",34.89,-84.28],["B.J. Reece Orchards","Ellijay","GA",34.66,-84.45],
+["Sky Top Orchard","Flat Rock","NC",35.3,-82.42],
+["Windy Hill Orchard","York","SC",35.0,-81.24],
+["Carter Mountain Orchard","Charlottesville","VA",37.99,-78.47],["Chiles Peach Orchard","Crozet","VA",38.07,-78.7],["Stribling Orchard","Markham","VA",38.9,-77.99],
+["Orr's Farm Market","Martinsburg","WV",39.43,-77.98],
+["Larriland Farm","Woodbine","MD",39.32,-77.04],
+["Hollabaugh Bros.","Biglerville","PA",39.93,-77.25],["Linvilla Orchards","Media","PA",39.9,-75.43],["Soergel Orchards","Wexford","PA",40.63,-80.07],
+["Terhune Orchards","Princeton","NJ",40.33,-74.72],["Alstede Farms","Chester","NJ",40.78,-74.69],["Delicious Orchards","Colts Neck","NJ",40.3,-74.17],
+["Masker Orchards","Warwick","NY",41.27,-74.38],["Fishkill Farms","Hopewell Junction","NY",41.56,-73.81],["Indian Ladder Farms","Altamont","NY",42.66,-74.0],["Hicks Orchard","Granville","NY",43.39,-73.3],
+["Lyman Orchards","Middlefield","CT",41.52,-72.71],["Bishop's Orchards","Guilford","CT",41.29,-72.68],
+["Honey Pot Hill Orchards","Stow","MA",42.43,-71.5],["Russell Orchards","Ipswich","MA",42.66,-70.84],
+["Shelburne Orchards","Shelburne","VT",44.37,-73.25],["Scott Farm Orchard","Dummerston","VT",42.92,-72.6],
+["Applecrest Farm Orchards","Hampton Falls","NH",42.92,-70.88],["Carter Hill Orchard","Concord","NH",43.2,-71.6],
+["Ricker Hill Orchards","Turner","ME",44.26,-70.24],["Pietree Orchard","Sweden","ME",44.13,-70.83]
+].map(([name,city,st,lat,lng])=>({type:"orchard",name,city,st,lat,lng}));
+
+// Approx. apple acres by state, rounded from USDA 2022 Census of Agriculture
+const ACRES = {WA:166000,NY:45000,MI:38000,PA:21000,CA:12000,VA:10000,NC:7000,OR:6000,OH:4500,WI:3500,WV:3500,MA:3000,ME:2500,ID:2500,NJ:2000,VT:2000,MN:2000,IL:2000,MD:2000,UT:2000,MO:1700,NH:1500,CT:1500,CO:1500,IN:1500,GA:1200,AZ:1000,TN:900,KY:800,IA:800,SC:700,TX:600,MT:600,NM:400,AR:300,KS:300,NE:300,OK:300,AL:300,DE:300,RI:300,SD:150,MS:100,ND:50,WY:50,NV:50,LA:50,FL:30,DC:0,AK:10,HI:10};
+
+const FIPS = {"01":"AL","02":"AK","04":"AZ","05":"AR","06":"CA","08":"CO","09":"CT","10":"DE","11":"DC","12":"FL","13":"GA","15":"HI","16":"ID","17":"IL","18":"IN","19":"IA","20":"KS","21":"KY","22":"LA","23":"ME","24":"MD","25":"MA","26":"MI","27":"MN","28":"MS","29":"MO","30":"MT","31":"NE","32":"NV","33":"NH","34":"NJ","35":"NM","36":"NY","37":"NC","38":"ND","39":"OH","40":"OK","41":"OR","42":"PA","44":"RI","45":"SC","46":"SD","47":"TN","48":"TX","49":"UT","50":"VT","51":"VA","53":"WA","54":"WV","55":"WI","56":"WY","72":"PR"};
+
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const fmt = d3.format(",");
+const short = n => n >= 1000 ? (n/1000).toFixed(n >= 10000 ? 0 : 1).replace(/\.0$/,"") + "k" : String(n);
+const toRad = d => d * Math.PI / 180;
+const miles = (a, b) => { const R = 3958.8, dLat = toRad(b.lat-a.lat), dLng = toRad(b.lng-a.lng);
+  const h = Math.sin(dLat/2)**2 + Math.cos(toRad(a.lat))*Math.cos(toRad(b.lat))*Math.sin(dLng/2)**2; return 2*R*Math.asin(Math.sqrt(h)); };
+const nearest = (p, list) => list.reduce((best, x) => { const d = miles(p, x); return d < best.d ? {x, d} : best; }, {x:null, d:Infinity});
+
+const storeCount = d3.rollup(STORES, v => v.length, d => d.st);
+const orchCount = d3.rollup(ORCHARDS, v => v.length, d => d.st);
+const totalAcres = d3.sum(Object.values(ACRES));
+
+const state = { layers: {stores:true, orchards:true, density:true}, st: "", you: null, sel: null, tab: "stores", names: {} };
+
+const svg = d3.select("#map"), W = 975, H = 610;
+const projection = d3.geoAlbersUsa().scale(1280).translate([W/2, H/2]);
+const path = d3.geoPath(projection);
+const root = svg.append("g");
+const gStates = root.append("g"), gLines = root.append("g"), gOrch = root.append("g"), gStores = root.append("g"), gYou = root.append("g");
+const tip = document.getElementById("tip"), wrap = document.getElementById("mapwrap");
+let k = 1, features = [];
+
+const rampColors = [css("--color-neutral-200"), css("--color-accent-2-200"), css("--color-accent-2-300"), css("--color-accent-2-400"), css("--color-accent-2-500"), css("--color-accent-2-600"), css("--color-accent-2-700")];
+const color = d3.scaleThreshold().domain([100, 500, 1500, 3000, 10000, 40000]).range(rampColors);
+document.getElementById("ramp").innerHTML = rampColors.map(c => `<span style="background:${c}"></span>`).join("");
+
+const zoom = d3.zoom().scaleExtent([1, 14]).translateExtent([[0,0],[W,H]]).on("zoom", e => {
+  root.attr("transform", e.transform); k = e.transform.k; sizeMarks();
+});
+svg.call(zoom);
+
+function sizeMarks() {
+  gStores.selectAll("circle").attr("r", 3.6/Math.sqrt(k)+0.6/k).attr("stroke-width", 1/k);
+  gOrch.selectAll("rect").attr("width", 7/Math.sqrt(k)).attr("height", 7/Math.sqrt(k))
+    .attr("x", -3.5/Math.sqrt(k)).attr("y", -3.5/Math.sqrt(k)).attr("stroke-width", 1/k);
+  gStates.selectAll("path").attr("stroke-width", 0.8/k);
+  gLines.selectAll("line").attr("stroke-width", 1.6/k).attr("stroke-dasharray", `${4/k} ${3/k}`);
+  gYou.selectAll("circle").attr("r", (d,i) => (i ? 5 : 12)/Math.sqrt(k)).attr("stroke-width", 2/k);
+}
+
+function showTip(ev, html) {
+  const r = wrap.getBoundingClientRect();
+  tip.innerHTML = html; tip.style.left = (ev.clientX - r.left) + "px"; tip.style.top = (ev.clientY - r.top) + "px"; tip.style.opacity = 1;
+}
+const hideTip = () => tip.style.opacity = 0;
+
+function draw() {
+  gStates.selectAll("path").data(features).join("path").attr("class","state").attr("d", path)
+    .on("mousemove", (ev, f) => { const a = f.properties.ab; if (!a) return;
+      showTip(ev, `<b>${state.names[a]}</b>${fmt(ACRES[a] ?? 0)} acres of apples<br>${storeCount.get(a) ?? 0} Apple Stores · ${orchCount.get(a) ?? 0} notable orchards`); })
+    .on("mouseleave", hideTip)
+    .on("click", (ev, f) => { if (ev.defaultPrevented) return; const a = f.properties.ab; if (a) setStateFilter(state.st === a ? "" : a); });
+
+  const placed = arr => arr.map(d => ({...d, p: projection([d.lng, d.lat])})).filter(d => d.p);
+  gOrch.selectAll("rect").data(placed(ORCHARDS)).join("rect")
+    .attr("transform", d => `translate(${d.p[0]},${d.p[1]}) rotate(45)`).attr("rx", 1)
+    .attr("fill", css("--color-accent-2-800")).attr("stroke", css("--color-neutral-100")).style("cursor","pointer")
+    .on("mousemove", (ev, d) => showTip(ev, `<b>${d.name}</b>${d.city}, ${d.st} · orchard`)).on("mouseleave", hideTip)
+    .on("click", (ev, d) => { ev.stopPropagation(); select(d); });
+  gStores.selectAll("circle").data(placed(STORES)).join("circle")
+    .attr("cx", d => d.p[0]).attr("cy", d => d.p[1])
+    .attr("fill", css("--color-accent")).attr("stroke", css("--color-neutral-100")).style("cursor","pointer")
+    .on("mousemove", (ev, d) => showTip(ev, `<b>${d.name}</b>${d.city}, ${d.st} · Apple Store`)).on("mouseleave", hideTip)
+    .on("click", (ev, d) => { ev.stopPropagation(); select(d); });
+  applyStyles(); sizeMarks();
+}
+
+function applyStyles() {
+  const L = state.layers, st = state.st;
+  gStates.selectAll("path").attr("fill", f => L.density ? color(ACRES[f.properties.ab] ?? 0) : css("--color-neutral-200"))
+    .attr("opacity", f => !st || f.properties.ab === st ? 1 : 0.35);
+  gStores.attr("display", L.stores ? null : "none").selectAll("circle").attr("opacity", d => !st || d.st === st ? 1 : 0.2);
+  gOrch.attr("display", L.orchards ? null : "none").selectAll("rect").attr("opacity", d => !st || d.st === st ? 1 : 0.2);
+  document.getElementById("legend").style.display = L.density ? "" : "none";
+  document.querySelectorAll(".chip").forEach(c => c.setAttribute("aria-pressed", L[c.dataset.layer]));
+}
+
+function zoomToState(ab) {
+  const t = svg.transition().duration(650);
+  if (!ab) return zoom.transform(t, d3.zoomIdentity);
+  const f = features.find(f => f.properties.ab === ab); if (!f) return;
+  const [[x0,y0],[x1,y1]] = path.bounds(f);
+  const s = Math.min(8, 0.85 / Math.max((x1-x0)/W, (y1-y0)/H));
+  zoom.transform(t, d3.zoomIdentity.translate(W/2, H/2).scale(s).translate(-(x0+x1)/2, -(y0+y1)/2));
+}
+function zoomToPoint(lat, lng, s = 5) {
+  const p = projection([lng, lat]); if (!p) return;
+  zoom.transform(svg.transition().duration(650), d3.zoomIdentity.translate(W/2, H/2).scale(s).translate(-p[0], -p[1]));
+}
+
+function setStateFilter(ab) {
+  state.st = ab; state.sel = null; document.getElementById("stateSel").value = ab;
+  applyStyles(); zoomToState(ab); renderAside();
+}
+
+function select(d) { state.sel = d; renderAside(); }
+
+function setYou(p, label) {
+  state.you = {...p, label}; state.sel = null;
+  const ns = nearest(p, STORES), no = nearest(p, ORCHARDS);
+  const pp = projection([p.lng, p.lat]);
+  gYou.selectAll("*").remove(); gLines.selectAll("*").remove();
+  if (pp) {
+    [ns.x, no.x].forEach((t, i) => { const q = projection([t.lng, t.lat]); if (!q) return;
+      gLines.append("line").attr("x1", pp[0]).attr("y1", pp[1]).attr("x2", q[0]).attr("y2", q[1])
+        .attr("stroke", i ? css("--color-accent-2-800") : css("--color-accent-700")).attr("stroke-linecap","round"); });
+    gYou.append("circle").attr("cx", pp[0]).attr("cy", pp[1]).attr("fill", css("--color-text")).attr("opacity", .12);
+    gYou.append("circle").attr("cx", pp[0]).attr("cy", pp[1]).attr("fill", css("--color-text")).attr("stroke", css("--color-neutral-100"));
+    const far = Math.max(ns.d, no.d);
+    zoomToPoint(p.lat, p.lng, far > 600 ? 1.6 : far > 250 ? 2.5 : far > 80 ? 4 : 6);
+  }
+  sizeMarks(); renderAside();
+}
+
+function bars(rows, key, max, col, fmtv) {
+  return `<div class="rank">${rows.map(r => `<button class="row" data-st="${r.st}"><span class="ab">${r.st}</span>
+    <span class="bar"><i style="width:${Math.max(2, r[key]/max*100)}%;background:${col}"></i></span><span class="v">${fmtv(r[key])}</span></button>`).join("")}</div>`;
+}
+
+function nearCard(from, title, kicker) {
+  const ns = nearest(from, STORES.filter(s => s !== from)), no = nearest(from, ORCHARDS.filter(o => o !== from));
+  return `<div class="card elev-sm">
+    <div class="card-kicker">${kicker}</div>
+    <div class="card-title">${title}</div>
+    <div class="near">
+      <div><span class="sw sw-store"></span><span>${ns.x.name}<br><span class="text-muted">${ns.x.city}, ${ns.x.st}</span></span><span class="d">${fmt(Math.round(ns.d))} mi</span></div>
+      <div><span class="sw sw-orch"></span><span>${no.x.name}<br><span class="text-muted">${no.x.city}, ${no.x.st}</span></span><span class="d">${fmt(Math.round(no.d))} mi</span></div>
+    </div>
+    <button class="btn btn-ghost" data-act="clear" style="align-self:flex-start">Clear</button>
+  </div>`;
+}
+
+function renderAside() {
+  const el = document.getElementById("aside"), st = state.st;
+  let html = "";
+  if (state.sel) {
+    const d = state.sel;
+    html += nearCard(d, d.name, `${d.type === "store" ? "Apple Store" : "Orchard"} · ${d.city}, ${d.st} — nearest of each`);
+  } else if (state.you) {
+    html += nearCard(state.you, state.you.label, "Nearest to you");
+  }
+
+  if (!st) {
+    const rows = Object.keys(state.names).map(a => ({st:a, stores: storeCount.get(a) ?? 0, acres: ACRES[a] ?? 0}));
+    const topS = [...rows].sort((a,b) => b.stores - a.stores).slice(0, 10);
+    const topA = [...rows].sort((a,b) => b.acres - a.acres).slice(0, 10);
+    const wa = ACRES.WA / totalAcres, waS = storeCount.get("WA"), caS = storeCount.get("CA");
+    const topStoreStates = topS.slice(0,4).reduce((s,r)=>s+r.stores,0) / STORES.length;
+    html += `<div class="stats">
+      <div class="stat store"><div class="n">${STORES.length}</div><div class="l">Apple Stores</div></div>
+      <div class="stat orch"><div class="n">${short(totalAcres)}</div><div class="l">acres of apple orchards</div></div>
+    </div>
+    <p class="story">Washington grows about <strong>${Math.round(wa*100)}%</strong> of the country’s apple acreage and has <strong>${waS}</strong> Apple Stores. California, New York, Florida and Texas hold <strong>${Math.round(topStoreStates*100)}%</strong> of all stores. Only California and New York rank in the top five for both.</p>
+    <div class="panel">
+      <div class="tabs" role="tablist">
+        <button role="tab" data-tab="stores" aria-selected="${state.tab === "stores"}">Most stores</button>
+        <button role="tab" data-tab="acres" aria-selected="${state.tab === "acres"}">Most orchard acres</button>
+      </div>
+      ${state.tab === "stores" ? bars(topS, "stores", topS[0].stores, css("--color-accent"), String)
+        : bars(topA, "acres", topA[0].acres, css("--color-accent-2-600"), short)}
+    </div>`;
+  } else {
+    const ss = STORES.filter(s => s.st === st), oo = ORCHARDS.filter(o => o.st === st);
+    const acres = ACRES[st] ?? 0;
+    const rankA = Object.keys(ACRES).sort((a,b) => ACRES[b]-ACRES[a]).indexOf(st) + 1;
+    const rankS = [...new Set(Object.keys(state.names))].sort((a,b) => (storeCount.get(b)??0)-(storeCount.get(a)??0)).indexOf(st) + 1;
+    html += `<div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap"><h3 style="margin:0">${state.names[st]}</h3>
+      <button class="btn btn-ghost" data-act="all">All states</button></div>
+    <div class="stats">
+      <div class="stat store"><div class="n">${ss.length}</div><div class="l">Apple Stores${ss.length ? ` · #${rankS} nationally` : ""}</div></div>
+      <div class="stat orch"><div class="n">${short(acres)}</div><div class="l">acres of apples${acres ? ` · #${rankA}` : ""}</div></div>
+    </div>
+    <p class="story">${acres && ss.length ? `About <strong>${fmt(Math.round(acres / ss.length))}</strong> acres of apple orchard for every Apple Store.` : ss.length ? "Stores, but almost no commercial apple orchards." : acres ? "Orchards, but no Apple Store." : ""}
+      ${(acres/totalAcres*100).toFixed(1)}% of U.S. apple acreage.</p>
+    <div class="panel">
+      <h4>Places in ${st}</h4>
+      <div class="list">${[...ss, ...oo].map((d,i) => `<button data-i="${i}"><span class="sw ${d.type === "store" ? "sw-store" : "sw-orch"}"></span>${d.name}<span class="c">${d.city}</span></button>`).join("") || `<span class="text-muted" style="padding:4px 8px">No mapped places.</span>`}</div>
+    </div>`;
+    el._list = [...ss, ...oo];
+  }
+  el.innerHTML = html;
+}
+
+document.getElementById("aside").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  const el = e.currentTarget;
+  if (b.dataset.tab) { state.tab = b.dataset.tab; renderAside(); }
+  else if (b.dataset.st) setStateFilter(b.dataset.st);
+  else if (b.dataset.act === "all") setStateFilter("");
+  else if (b.dataset.act === "clear") { state.sel = null; state.you = null; gYou.selectAll("*").remove(); gLines.selectAll("*").remove(); renderAside(); }
+  else if (b.dataset.i != null) { const d = el._list[+b.dataset.i]; select(d); zoomToPoint(d.lat, d.lng, 7); }
+});
+
+document.querySelectorAll(".chip").forEach(c => c.addEventListener("click", () => {
+  state.layers[c.dataset.layer] = !state.layers[c.dataset.layer]; applyStyles();
+}));
+document.getElementById("stateSel").addEventListener("change", e => setStateFilter(e.target.value));
+document.getElementById("zin").onclick = () => svg.transition().call(zoom.scaleBy, 1.6);
+document.getElementById("zout").onclick = () => svg.transition().call(zoom.scaleBy, 1/1.6);
+document.getElementById("zreset").onclick = () => setStateFilter("");
+
+const msg = t => document.getElementById("msg").textContent = t || "";
+
+document.getElementById("search").addEventListener("submit", async e => {
+  e.preventDefault(); msg();
+  const q = document.getElementById("q").value.trim(); if (!q) return;
+  if (/^\d{5}$/.test(q)) {
+    try {
+      const r = await fetch(`https://api.zippopotam.us/us/${q}`); if (!r.ok) throw 0;
+      const j = await r.json(), pl = j.places[0];
+      setYou({lat: +pl.latitude, lng: +pl.longitude}, `${pl["place name"]}, ${pl["state abbreviation"]} ${q}`);
+    } catch { msg("Couldn’t find that ZIP code."); }
+    return;
+  }
+  const ql = q.toLowerCase().replace(/\s*,\s*/g, ",");
+  const ab = Object.keys(state.names).find(a => a.toLowerCase() === ql || state.names[a].toLowerCase() === ql);
+  if (ab) return setStateFilter(ab);
+  const [cityQ, stQ] = ql.split(",");
+  const all = [...STORES, ...ORCHARDS];
+  const hit = all.find(d => d.city.toLowerCase() === cityQ && (!stQ || d.st.toLowerCase() === stQ.trim()))
+    || all.find(d => d.name.toLowerCase().includes(ql) || d.city.toLowerCase().startsWith(cityQ));
+  if (hit) {
+    if (state.st) { state.st = ""; document.getElementById("stateSel").value = ""; applyStyles(); }
+    setYou({lat: hit.lat, lng: hit.lng}, `${hit.city}, ${hit.st}`);
+  } else msg("No match. Try a ZIP code for anywhere in the U.S.");
+});
+
+document.getElementById("locate").addEventListener("click", () => {
+  msg();
+  if (!navigator.geolocation) return msg("Location isn’t available in this browser.");
+  msg("Finding you…");
+  navigator.geolocation.getCurrentPosition(
+    pos => { msg(); setYou({lat: pos.coords.latitude, lng: pos.coords.longitude}, "Your location"); },
+    () => msg("Location permission was denied. Try a ZIP code instead."), {timeout: 10000});
+});
+
+const STATE_NAMES = {AL:"Alabama",AK:"Alaska",AZ:"Arizona",AR:"Arkansas",CA:"California",CO:"Colorado",CT:"Connecticut",DE:"Delaware",DC:"District of Columbia",FL:"Florida",GA:"Georgia",HI:"Hawaii",ID:"Idaho",IL:"Illinois",IN:"Indiana",IA:"Iowa",KS:"Kansas",KY:"Kentucky",LA:"Louisiana",ME:"Maine",MD:"Maryland",MA:"Massachusetts",MI:"Michigan",MN:"Minnesota",MS:"Mississippi",MO:"Missouri",MT:"Montana",NE:"Nebraska",NV:"Nevada",NH:"New Hampshire",NJ:"New Jersey",NM:"New Mexico",NY:"New York",NC:"North Carolina",ND:"North Dakota",OH:"Ohio",OK:"Oklahoma",OR:"Oregon",PA:"Pennsylvania",RI:"Rhode Island",SC:"South Carolina",SD:"South Dakota",TN:"Tennessee",TX:"Texas",UT:"Utah",VT:"Vermont",VA:"Virginia",WA:"Washington",WV:"West Virginia",WI:"Wisconsin",WY:"Wyoming"};
+state.names = STATE_NAMES;
+document.getElementById("stateSel").insertAdjacentHTML("beforeend",
+  Object.entries(STATE_NAMES).sort((a,b) => a[1].localeCompare(b[1])).map(([a,n]) => `<option value="${a}">${n}</option>`).join(""));
+
+renderAside();
+fetch("https://cdn.jsdelivr.net/npm/us-atlas@3.0.1/states-10m.json").then(r => r.json()).then(us => {
+  features = topojson.feature(us, us.objects.states).features.filter(f => FIPS[f.id] && FIPS[f.id] !== "PR");
+  features.forEach(f => f.properties.ab = FIPS[f.id]);
+  draw();
+}).catch(() => msg("Map geometry failed to load."));
+</script>
+</body>
+</html>
