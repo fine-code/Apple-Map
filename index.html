@@ -9,6 +9,23 @@
 <script src="https://unpkg.com/topojson-client@3.1.0/dist/topojson-client.min.js" integrity="sha384-Ukv1p/xTma6P4/2bY5KzWBw+ydSpXmhCMtyciIQVDJ1RmOxtCYNMF1uXT9T63H67" crossorigin="anonymous"></script>
 <style>
   a:hover { color: var(--color-accent-700); }
+  :root { --apple: oklch(0.6 0.14 33);
+    --ease-out-quart: cubic-bezier(.165,.84,.44,1); --ease-out-cubic: cubic-bezier(.215,.61,.355,1); --ease-in-out-cubic: cubic-bezier(.645,.045,.355,1);
+    --dur-fast: 150ms; --dur-base: 300ms; }
+  .chip, .tabs button, .row, .list button, .zoomctl .btn { transition: background-color var(--dur-fast) var(--ease-out-cubic), opacity var(--dur-fast) var(--ease-out-cubic); }
+  .row .bar i { transform-origin: 0 50%; }
+  .grow .row .bar i { animation: grow var(--dur-base) var(--ease-out-quart) both; animation-delay: calc(var(--i) * 18ms); }
+  @keyframes grow { from { transform: scaleX(0); } }
+  .enter > * { animation: rise var(--dur-base) var(--ease-out-quart) both; }
+  .enter > :nth-child(2) { animation-delay: 40ms; } .enter > :nth-child(3) { animation-delay: 80ms; } .enter > :nth-child(n+4) { animation-delay: 120ms; }
+  @keyframes rise { from { opacity: 0; transform: translateY(6px); } }
+  .mapcard.in { animation: cardIn var(--dur-base) var(--ease-out-quart) both; }
+  @keyframes cardIn { from { opacity: 0; transform: translateY(-6px) scale(.98); } }
+  @media (prefers-reduced-motion: reduce) {
+    .grow .row .bar i, .enter > *, .mapcard.in { animation: fade var(--dur-fast) linear both !important; animation-delay: 0s !important; }
+    @keyframes fade { from { opacity: 0; } }
+    .state { transition: none !important; }
+  }
   .page { max-width: 1440px; margin: 0 auto; padding: var(--space-6) var(--space-6) var(--space-8); }
   header { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-4) var(--space-8); margin-bottom: var(--space-6); }
   header h1 { margin: 0; font-size: clamp(30px, 4vw, 46px); max-width: 15ch; text-wrap: balance; }
@@ -28,24 +45,27 @@
   .chip[aria-pressed="false"] { opacity: .5; }
   .chip[aria-pressed="false"] .sw { filter: grayscale(1); }
   .sw { width: 12px; height: 12px; flex: none; }
-  .sw-store { border-radius: 50%; background: var(--color-accent); }
-  .sw-orch { background: var(--color-accent-2-800); transform: rotate(45deg) scale(.82); border-radius: 2px; }
+  .sw-store { background: var(--color-text); transform: rotate(45deg) scale(.78); border-radius: 2px; }
+  .sw-orch { width: 14px; height: 14px; background: var(--apple); -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black' stroke='black' stroke-width='2.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M18.237 21A15 15 0 0 0 22 11a6 6 0 0 0-10-4.472A6 6 0 0 0 2 11a15.1 15.1 0 0 0 3.763 10 3 3 0 0 0 3.648.648 5.5 5.5 0 0 1 5.178 0A3 3 0 0 0 18.237 21'/%3E%3C/svg%3E") center / contain no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black' stroke='black' stroke-width='2.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M18.237 21A15 15 0 0 0 22 11a6 6 0 0 0-10-4.472A6 6 0 0 0 2 11a15.1 15.1 0 0 0 3.763 10 3 3 0 0 0 3.648.648 5.5 5.5 0 0 1 5.178 0A3 3 0 0 0 18.237 21'/%3E%3C/svg%3E") center / contain no-repeat; }
   .sw-dens { border-radius: 4px; background: linear-gradient(90deg, var(--color-accent-2-200), var(--color-accent-2-600)); width: 22px; }
   .mapwrap { position: relative; background: var(--color-neutral-100); border-radius: calc(var(--radius-lg) * 1.15); overflow: hidden; }
   .mapwrap svg { display: block; width: 100%; height: auto; cursor: grab; }
   .mapwrap svg:active { cursor: grabbing; }
-  .state { stroke: var(--color-neutral-100); stroke-linejoin: round; transition: fill .3s, opacity .3s; }
+  .state { stroke: var(--color-neutral-100); stroke-linejoin: round; transition: fill var(--dur-base) var(--ease-out-cubic), opacity var(--dur-base) var(--ease-out-cubic); }
   .zoomctl { position: absolute; top: var(--space-3); right: var(--space-3); display: flex; flex-direction: column; gap: 6px; }
   .zoomctl .btn { background: var(--color-bg); box-shadow: var(--shadow-sm); border-radius: 999px; font-size: 18px; font-family: var(--font-body); }
   .zoomctl .btn:hover { background: var(--color-accent-100); }
   .legend { position: absolute; left: var(--space-4); bottom: var(--space-4); background: color-mix(in srgb, var(--color-bg) 92%, transparent);
-    border-radius: var(--radius-md); padding: 10px 14px; font-size: 12px; display: grid; gap: 6px; box-shadow: var(--shadow-sm); }
-  .legend .ramp { display: flex; height: 8px; width: 160px; border-radius: 999px; overflow: hidden; }
-  .legend .ramp span { flex: 1; }
-  .legend .ticks { display: flex; justify-content: space-between; color: var(--color-neutral-700); font-size: 11px; }
+    border-radius: var(--radius-md); padding: 10px 14px; font-size: 12px; display: grid; gap: 6px; }
+  .legend .sws { display: flex; gap: 3px; }
+  .legend .sws div { display: grid; gap: 3px; justify-items: center; font-size: 10px; color: var(--color-neutral-700); min-width: 30px; }
+  .legend .sws i { display: block; width: 30px; height: 10px; border-radius: 999px; }
+  .shade { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; font-size: 13px; color: var(--color-neutral-800); margin-left: auto; }
+  .shade .tabs { margin: 0; }
   @media (max-width: 640px) { .legend { position: static; margin: var(--space-3); } }
   .tip { position: absolute; pointer-events: none; background: var(--color-text); color: var(--color-bg); font-size: 12px; line-height: 1.35;
-    padding: 7px 11px; border-radius: 12px; max-width: 240px; opacity: 0; transform: translate(-50%, calc(-100% - 12px)); transition: opacity .12s; white-space: normal; }
+    padding: 7px 11px; border-radius: 12px; max-width: 240px; opacity: 0; transform: translate(-50%, calc(-100% - 6px)); transition: opacity var(--dur-fast) var(--ease-out-cubic), transform var(--dur-fast) var(--ease-out-cubic); white-space: normal; }
+  .tip.on { opacity: 1; transform: translate(-50%, calc(-100% - 12px)); }
   .tip b { font-weight: 700; display: block; font-size: 13px; }
   .note { font-size: 12px; color: var(--color-neutral-700); margin-top: var(--space-3); max-width: 80ch; }
   aside { display: grid; gap: var(--space-4); }
@@ -53,8 +73,8 @@
   .stat { background: var(--color-surface); border-radius: var(--radius-lg); padding: var(--space-3) var(--space-4); }
   .stat .n { font-family: var(--font-heading); font-size: 30px; line-height: 1.05; }
   .stat .l { font-size: 12px; color: var(--color-neutral-800); }
-  .stat.store .n { color: var(--color-accent-700); }
-  .stat.orch .n { color: var(--color-accent-2-700); }
+  .stat.store .n { color: var(--color-text); }
+  .stat.orch .n { color: var(--color-accent-700); }
   .story { font-size: 14px; color: var(--color-neutral-900); text-wrap: pretty; margin: 0; }
   .story strong { font-weight: 700; }
   .panel h4 { font-size: 17px; margin-bottom: var(--space-2); }
@@ -63,7 +83,16 @@
     padding: 3px 8px; margin: 0 -8px; border-radius: 10px; cursor: pointer; background: none; border: 0; font-family: inherit; color: inherit; text-align: left; width: calc(100% + 16px); }
   .row:hover { background: color-mix(in srgb, var(--color-text) 6%, transparent); }
   .row .ab { font-weight: 700; color: var(--color-neutral-800); }
-  .row .bar { height: 10px; border-radius: 999px; background: var(--color-neutral-200); overflow: hidden; }
+  .row .bar { position: relative; height: 10px; border-radius: 999px; background: var(--color-neutral-200); }
+  .row .bar b { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; border-radius: 2px; background: var(--color-neutral-800); }
+  .row.zero .ab, .row.zero .v { color: var(--color-neutral-600); }
+
+  .caption { font-size: 13px; color: var(--color-neutral-800); margin: 0 0 var(--space-3); text-wrap: pretty; }
+  .caption strong { color: var(--color-text); }
+  .stat .ctx { font-size: 12px; color: var(--color-neutral-700); margin-top: 4px; }
+  .compare-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); flex-wrap: wrap; margin-bottom: var(--space-2); }
+  .compare-head h4 { margin: 0; }
+  .compare-head select.input { flex: 0 1 auto; padding-top: 6px; padding-bottom: 6px; font-size: 13px; }
   .row .bar i { display: block; height: 100%; border-radius: 999px; }
   .row .v { text-align: right; font-variant-numeric: tabular-nums; color: var(--color-neutral-800); }
   .tabs { display: inline-flex; border: 1px solid var(--color-divider); border-radius: 999px; overflow: hidden; margin-bottom: var(--space-3); }
@@ -72,12 +101,18 @@
   .tabs button[aria-selected="true"] { background: var(--color-accent); color: var(--color-bg); }
   .tabs button[aria-selected="false"]:hover { background: color-mix(in srgb, var(--color-text) 7%, transparent); }
   .card .card-title { font-size: 19px; }
+  .mapcard { position: absolute; top: var(--space-3); left: var(--space-3); width: min(300px, calc(100% - 80px)); display: grid; gap: var(--space-2);
+    background: var(--color-bg); border-radius: var(--radius-lg); padding: var(--space-3) var(--space-4); box-shadow: var(--shadow-md); }
+  .mapcard[hidden] { display: none; }
+  .mapcard .card-title { font-size: 18px; padding-right: 28px; }
+  .mapcard .x { position: absolute; top: 8px; right: 8px; width: 30px; height: 30px; min-height: 0; padding: 0; font-size: 16px; }
+  .list button[aria-current="true"] { background: var(--color-accent-100); font-weight: 700; }
   .near { display: grid; gap: 8px; font-size: 13px; }
   .near div { display: flex; gap: 10px; align-items: baseline; }
   .near .sw { transform: translateY(1px); }
-  .near .sw-orch { transform: translateY(1px) rotate(45deg) scale(.82); }
+  .near .sw-store { transform: translateY(1px) rotate(45deg) scale(.78); }
   .near .d { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--color-neutral-800); white-space: nowrap; }
-  .list { max-height: 260px; overflow: auto; display: grid; gap: 2px; font-size: 13px; margin: 0 -8px; }
+  .list { min-height: 160px; overflow: auto; display: grid; gap: 2px; font-size: 13px; margin: 0 -8px; }
   .list button { display: flex; gap: 10px; align-items: center; text-align: left; font: inherit; background: none; border: 0; color: inherit; padding: 4px 8px; border-radius: 10px; cursor: pointer; }
   .list button:hover { background: color-mix(in srgb, var(--color-text) 6%, transparent); }
   .list .c { margin-left: auto; color: var(--color-neutral-700); font-size: 12px; white-space: nowrap; }
@@ -88,7 +123,7 @@
 <div class="page">
   <header>
     <h1>Apple Stores &amp; apple orchards</h1>
-    <p>Two very different apples. One kind follows people and shopping malls, the other follows cold winters and river valleys. Toggle the layers, pick a state, or find the nearest of each to you.</p>
+    <p>Two very different apples. One kind follows people and shopping malls, the other follows cold winters and river valleys. Toggle the layers, pick a state, or find the closest one to you.</p>
   </header>
 
   <div class="layout">
@@ -104,8 +139,15 @@
       <div class="msg" id="msg"></div>
       <div class="layers">
         <button class="chip" data-layer="stores" aria-pressed="true"><span class="sw sw-store"></span>Apple Stores</button>
-        <button class="chip" data-layer="orchards" aria-pressed="true"><span class="sw sw-orch"></span>Notable orchards</button>
-        <button class="chip" data-layer="density" aria-pressed="true"><span class="sw sw-dens"></span>Orchard acreage by state</button>
+        <button class="chip" data-layer="orchards" aria-pressed="true"><span class="sw sw-orch"></span>Pick-your-own orchards</button>
+        <div class="shade"><span>Shade states by</span>
+          <div class="tabs" role="tablist" id="shadeTabs">
+            <button role="tab" data-shade="acres" aria-selected="true">Orchard acres</button>
+            <button role="tab" data-shade="pop" aria-selected="false">Population</button>
+            <button role="tab" data-shade="spm" aria-selected="false">Stores per person</button>
+            <button role="tab" data-shade="none" aria-selected="false">None</button>
+          </div>
+        </div>
       </div>
       <div class="mapwrap" id="mapwrap">
         <svg id="map" viewBox="0 0 975 610" role="img" aria-label="Map of the United States"></svg>
@@ -114,14 +156,12 @@
           <button class="btn btn-icon" id="zout" aria-label="Zoom out">−</button>
           <button class="btn btn-icon" id="zreset" aria-label="Reset view" style="font-size:13px">⤢</button>
         </div>
-        <div class="legend" id="legend">
-          <div style="font-weight:700">Apple acreage per state</div>
-          <div class="ramp" id="ramp"></div>
-          <div class="ticks"><span>&lt;100</span><span>1k</span><span>10k</span><span>150k+ acres</span></div>
-        </div>
+        <div class="legend" id="legend"></div>
+        <div class="mapcard" id="mapcard" hidden></div>
         <div class="tip" id="tip"></div>
       </div>
-      <p class="note">Store locations are approximate and reflect Apple’s U.S. retail footprint as of 2026. Orchard acreage per state is rounded from the USDA 2022 Census of Agriculture. Orchard pins are a curated set of well-known pick-your-own farms, not a complete list. ZIP lookup uses zippopotam.us.</p>
+      <p class="note">Store locations are approximate and reflect Apple’s U.S. retail footprint as of 2026. Orchard acreage per state is rounded from the USDA 2022 Census of Agriculture. Orchard pins show pick-your-own farms open to visitors. The list is a sample compiled by hand, not a complete directory, and locations are approximate; check with a farm before visiting. ZIP lookup uses zippopotam.us.</p>
+      <p class="note" style="margin-top:var(--space-2)">Apple Store is a trademark of Apple Inc. This map is not affiliated with Apple. This is a hobby project. The map shows more Apple Stores than pick-your-own orchards, but the U.S. has thousands of apple orchards.</p>
     </main>
 
     <aside id="aside"></aside>
@@ -206,11 +246,15 @@ const ORCHARDS = [
 ["Honey Pot Hill Orchards","Stow","MA",42.43,-71.5],["Russell Orchards","Ipswich","MA",42.66,-70.84],
 ["Shelburne Orchards","Shelburne","VT",44.37,-73.25],["Scott Farm Orchard","Dummerston","VT",42.92,-72.6],
 ["Applecrest Farm Orchards","Hampton Falls","NH",42.92,-70.88],["Carter Hill Orchard","Concord","NH",43.2,-71.6],
-["Ricker Hill Orchards","Turner","ME",44.26,-70.24],["Pietree Orchard","Sweden","ME",44.13,-70.83]
+["Ricker Hill Orchards","Turner","ME",44.26,-70.24],["Pietree Orchard","Sweden","ME",44.13,-70.83],
+["Walters' Fruit Ranch","Mead","WA",47.82,-117.33],["Bill's Berry Farm","Grandview","WA",46.25,-119.9],["Jones Creek Farms","Sedro-Woolley","WA",48.5,-122.24],["Draper Girls Country Farm","Parkdale","OR",45.48,-121.59],["Mt. View Orchards","Parkdale","OR",45.5,-121.62],["Bauman's Farm","Gervais","OR",45.1,-122.9],["Los Rios Rancho","Oak Glen","CA",34.05,-116.94],["Gowan's Oak Tree","Philo","CA",39.07,-123.45],["Andy's Produce","Sebastopol","CA",38.4,-122.83],["Ela Family Farms","Hotchkiss","CO",38.8,-107.72],["Delicious Orchards","Paonia","CO",38.87,-107.6],["Allred Orchards","Payson","UT",40.03,-111.73],["Symms Fruit Ranch","Caldwell","ID",43.53,-116.82],["Kimmel Orchard","Nebraska City","NE",40.68,-95.88],["Arbor Day Farm","Nebraska City","NE",40.66,-95.85],["Gieringer's Family Orchard","Edgerton","KS",38.76,-95],["Weston Red Barn Farm","Weston","MO",39.41,-94.9],["Center Grove Orchard","Cambridge","IA",41.9,-93.5],["Aamodt's Apple Farm","Stillwater","MN",45.05,-92.86],["Afton Apple Orchard","Hastings","MN",44.85,-92.82],["Hyline Orchards","Fish Creek","WI",45.1,-87.24],["Ski Hi Fruit Farm","Baraboo","WI",43.43,-89.75],["Brightonwoods Orchard","Burlington","WI",42.62,-88.27],["Kuipers Family Farm","Maple Park","IL",41.89,-88.6],["All Seasons Orchard","Woodstock","IL",42.33,-88.37],["Eckert's","Belleville","IL",38.5,-89.9],["Anderson Orchard","Mooresville","IN",39.6,-86.36],["Tuttle Orchards","Greenfield","IN",39.85,-85.81],["Uncle John's Cider Mill","St. Johns","MI",43.05,-84.55],["Spicer Orchards","Fenton","MI",42.8,-83.7],["Yates Cider Mill","Rochester Hills","MI",42.69,-83.11],["King Orchards","Central Lake","MI",45.07,-85.27],["Hill Bros. Orchards","Grand Rapids","MI",43.06,-85.6],["Wiard's Orchards","Ypsilanti","MI",42.21,-83.6],["Bergman Orchards","Port Clinton","OH",41.48,-82.95],["Rittman Orchards","Doylestown","OH",40.98,-81.7],["Hidden Valley Orchards","Lebanon","OH",39.45,-84.17],["Monroe's Orchard","Hiram","OH",41.3,-81.14],["Reed Valley Orchard","Paris","KY",38.2,-84.3],["Justus Orchard","Hendersonville","NC",35.35,-82.4],["Stepp's Hillcrest Orchard","Hendersonville","NC",35.34,-82.36],["Hillcrest Orchards","Ellijay","GA",34.69,-84.43],["Panorama Orchards","Ellijay","GA",34.69,-84.47],["Graves Mountain Lodge","Syria","VA",38.5,-78.33],["Marker-Miller Orchards","Winchester","VA",39.17,-78.2],["Hartland Orchard","Markham","VA",38.9,-78],["Catoctin Mountain Orchard","Thurmont","MD",39.64,-77.4],["Baugher's Orchard","Westminster","MD",39.58,-77.04],["Fifer Orchards","Camden-Wyoming","DE",39.07,-75.6],["Weaver's Orchard","Morgantown","PA",40.17,-75.9],["Solebury Orchards","New Hope","PA",40.37,-75],["Brown's Orchards","Loganville","PA",39.87,-76.7],["Trax Farms","Finleyville","PA",40.24,-80],["Way Fruit Farm","Port Matilda","PA",40.8,-78],["Battleview Orchards","Freehold","NJ",40.25,-74.31],["Melick's Town Farm","Oldwick","NJ",40.67,-74.75],["Dr. Davies Farm","Congers","NY",41.15,-73.95],["Wilklow Orchards","Highland","NY",41.72,-74],["Lawrence Farms Orchards","Newburgh","NY",41.55,-74.03],["Samascott Orchards","Kinderhook","NY",42.39,-73.7],["Wickham's Fruit Farm","Cutchogue","NY",41.01,-72.5],["Becker Farms","Gasport","NY",43.19,-78.58],["Hurd Orchards","Holley","NY",43.23,-78.03],["Beak & Skiff","LaFayette","NY",42.88,-76.1],["Critz Farms","Cazenovia","NY",42.92,-75.82],["Rogers Orchards","Southington","CT",41.58,-72.9],["Belltown Hill Orchards","South Glastonbury","CT",41.68,-72.56],["Phantom Farms","Cumberland","RI",41.96,-71.43],["Barden Family Orchard","North Scituate","RI",41.85,-71.6],["Tougas Family Farm","Northborough","MA",42.33,-71.66],["Carlson Orchards","Harvard","MA",42.48,-71.55],["Brooksby Farm","Peabody","MA",42.54,-70.98],["Clarkdale Fruit Farms","Deerfield","MA",42.55,-72.62],["Champlain Orchards","Shoreham","VT",43.89,-73.3],["Allenholm Farm","South Hero","VT",44.65,-73.3],["Gould Hill Farm","Contoocook","NH",43.2,-71.7],["Brookdale Fruit Farm","Hollis","NH",42.74,-71.6],["Doles Orchard","Limington","ME",43.72,-70.72],["McDougal Orchards","Springvale","ME",43.47,-70.8]
 ].map(([name,city,st,lat,lng])=>({type:"orchard",name,city,st,lat,lng}));
 
 // Approx. apple acres by state, rounded from USDA 2022 Census of Agriculture
 const ACRES = {WA:166000,NY:45000,MI:38000,PA:21000,CA:12000,VA:10000,NC:7000,OR:6000,OH:4500,WI:3500,WV:3500,MA:3000,ME:2500,ID:2500,NJ:2000,VT:2000,MN:2000,IL:2000,MD:2000,UT:2000,MO:1700,NH:1500,CT:1500,CO:1500,IN:1500,GA:1200,AZ:1000,TN:900,KY:800,IA:800,SC:700,TX:600,MT:600,NM:400,AR:300,KS:300,NE:300,OK:300,AL:300,DE:300,RI:300,SD:150,MS:100,ND:50,WY:50,NV:50,LA:50,FL:30,DC:0,AK:10,HI:10};
+
+// State population, Census Bureau July 2024 estimates (rounded)
+const POP = {CA:39431000,TX:31290000,FL:23372000,NY:19868000,PA:13079000,IL:12710000,OH:11883000,GA:11180000,NC:11046000,MI:10141000,NJ:9500000,VA:8812000,WA:7958000,AZ:7583000,TN:7227000,MA:7137000,IN:6925000,MD:6263000,MO:6246000,WI:5961000,CO:5957000,MN:5793000,SC:5479000,AL:5158000,LA:4598000,KY:4588000,OR:4273000,OK:4096000,CT:3676000,UT:3504000,IA:3242000,NV:3268000,AR:3089000,KS:2971000,MS:2944000,NM:2130000,NE:2005000,ID:2002000,WV:1770000,HI:1446000,NH:1410000,ME:1405000,MT:1138000,RI:1112000,DE:1052000,SD:924000,ND:797000,AK:741000,DC:702000,VT:648000,WY:588000};
 
 const FIPS = {"01":"AL","02":"AK","04":"AZ","05":"AR","06":"CA","08":"CO","09":"CT","10":"DE","11":"DC","12":"FL","13":"GA","15":"HI","16":"ID","17":"IL","18":"IN","19":"IA","20":"KS","21":"KY","22":"LA","23":"ME","24":"MD","25":"MA","26":"MI","27":"MN","28":"MS","29":"MO","30":"MT","31":"NE","32":"NV","33":"NH","34":"NJ","35":"NM","36":"NY","37":"NC","38":"ND","39":"OH","40":"OK","41":"OR","42":"PA","44":"RI","45":"SC","46":"SD","47":"TN","48":"TX","49":"UT","50":"VT","51":"VA","53":"WA","54":"WV","55":"WI","56":"WY","72":"PR"};
 
@@ -226,73 +270,106 @@ const storeCount = d3.rollup(STORES, v => v.length, d => d.st);
 const orchCount = d3.rollup(ORCHARDS, v => v.length, d => d.st);
 const totalAcres = d3.sum(Object.values(ACRES));
 
-const state = { layers: {stores:true, orchards:true, density:true}, st: "", you: null, sel: null, tab: "stores", names: {} };
+const state = { layers: {stores:true, orchards:true}, shade: "acres", metric: "stores", st: "", you: null, sel: null, hover: "", showAll: false, placeTab: "stores", names: {} };
 
 const svg = d3.select("#map"), W = 975, H = 610;
 const projection = d3.geoAlbersUsa().scale(1280).translate([W/2, H/2]);
 const path = d3.geoPath(projection);
 const root = svg.append("g");
-const gStates = root.append("g"), gLines = root.append("g"), gOrch = root.append("g"), gStores = root.append("g"), gYou = root.append("g");
+const gStates = root.append("g"), gHi = root.append("g").style("pointer-events","none"), gLines = root.append("g"), gOrch = root.append("g"), gStores = root.append("g"), gYou = root.append("g");
 const tip = document.getElementById("tip"), wrap = document.getElementById("mapwrap");
 let k = 1, features = [];
 
-const rampColors = [css("--color-neutral-200"), css("--color-accent-2-200"), css("--color-accent-2-300"), css("--color-accent-2-400"), css("--color-accent-2-500"), css("--color-accent-2-600"), css("--color-accent-2-700")];
-const color = d3.scaleThreshold().domain([100, 500, 1500, 3000, 10000, 40000]).range(rampColors);
-document.getElementById("ramp").innerHTML = rampColors.map(c => `<span style="background:${c}"></span>`).join("");
-
+const totalPop = d3.sum(Object.values(POP));
+const natSPM = STORES.length / (totalPop / 1e6), natAPS = totalAcres / STORES.length;
+const ramp = (name, steps) => steps.map(s => css(`--color-${name}-${s}`));
+const SHADES = {
+  acres: { title: "Apple orchard acres", colors: [css("--color-neutral-200"), ...ramp("accent-2", [200,300,400,500,600,700])],
+    breaks: [100, 500, 1500, 3000, 10000, 40000], labels: ["<100","500","1.5k","3k","10k","40k","40k+"], v: a => ACRES[a] ?? 0 },
+  pop: { title: "Population", colors: ramp("neutral", [200,300,400,500,600,700]),
+    breaks: [1e6, 2e6, 5e6, 10e6, 20e6], labels: ["<1M","1–2M","2–5M","5–10M","10–20M","20M+"], v: a => POP[a] ?? 0 },
+  spm: { title: "Apple Stores per million people", colors: [css("--color-neutral-200"), ...ramp("neutral", [300,400,500,600,700])],
+    breaks: [0.01, 0.4, 0.7, 1, 1.3], labels: ["none","<0.4","0.4–0.7","0.7–1","1–1.3","1.3+"], v: a => (storeCount.get(a) ?? 0) / ((POP[a] ?? 1) / 1e6) }
+};
+for (const s of Object.values(SHADES)) s.scale = d3.scaleThreshold().domain(s.breaks).range(s.colors);
+function renderLegend() {
+  const el = document.getElementById("legend"), s = SHADES[state.shade];
+  el.style.display = s ? "" : "none"; if (!s) return;
+  el.innerHTML = `<div style="font-weight:700">${s.title}</div><div class="sws">${s.colors.map((c,i) => `<div><i style="background:${c}"></i>${s.labels[i]}</div>`).join("")}</div>`
+    + (state.shade === "spm" ? `<div style="color:var(--color-neutral-700)">U.S. average: ${natSPM.toFixed(2)}</div>` : "");
+}
+const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const move = (ms = 550) => svg.transition().duration(REDUCED ? 0 : ms).ease(d3.easeCubicInOut);
 const zoom = d3.zoom().scaleExtent([1, 14]).translateExtent([[0,0],[W,H]]).on("zoom", e => {
   root.attr("transform", e.transform); k = e.transform.k; sizeMarks();
 });
 svg.call(zoom);
 
 function sizeMarks() {
-  gStores.selectAll("circle").attr("r", 3.6/Math.sqrt(k)+0.6/k).attr("stroke-width", 1/k);
-  gOrch.selectAll("rect").attr("width", 7/Math.sqrt(k)).attr("height", 7/Math.sqrt(k))
-    .attr("x", -3.5/Math.sqrt(k)).attr("y", -3.5/Math.sqrt(k)).attr("stroke-width", 1/k);
+  const s = 6.4/Math.sqrt(k);
+  gStores.selectAll("rect").attr("width", s).attr("height", s).attr("x", -s/2).attr("y", -s/2).attr("stroke-width", 1/k);
+  const a = 13/24/Math.sqrt(k);
+  gOrch.selectAll("g.apple").attr("transform", d => `translate(${d.p[0]},${d.p[1]}) scale(${a}) translate(-12,-12)`)
+    .selectAll("path").attr("stroke-width", (d,i) => (i ? 2.2 : d === state.sel?._src ? 8 : 5)/(a*k));
   gStates.selectAll("path").attr("stroke-width", 0.8/k);
+  gHi.selectAll("path").attr("stroke-width", 2.2/k);
+  const sel = state.sel;
+  gStores.selectAll("rect").attr("stroke", d => d === sel?._src ? css("--color-accent") : css("--color-neutral-100")).attr("stroke-width", d => (d === sel?._src ? 2.2 : 1)/k);
+  gOrch.selectAll("g.apple").select("path").attr("stroke", d => d === sel?._src ? css("--color-text") : css("--color-neutral-100"));
   gLines.selectAll("line").attr("stroke-width", 1.6/k).attr("stroke-dasharray", `${4/k} ${3/k}`);
   gYou.selectAll("circle").attr("r", (d,i) => (i ? 5 : 12)/Math.sqrt(k)).attr("stroke-width", 2/k);
 }
 
 function showTip(ev, html) {
   const r = wrap.getBoundingClientRect();
-  tip.innerHTML = html; tip.style.left = (ev.clientX - r.left) + "px"; tip.style.top = (ev.clientY - r.top) + "px"; tip.style.opacity = 1;
+  tip.innerHTML = html; tip.style.left = (ev.clientX - r.left) + "px"; tip.style.top = (ev.clientY - r.top) + "px"; tip.classList.add("on");
 }
-const hideTip = () => tip.style.opacity = 0;
+const hideTip = () => tip.classList.remove("on");
 
 function draw() {
   gStates.selectAll("path").data(features).join("path").attr("class","state").attr("d", path)
     .on("mousemove", (ev, f) => { const a = f.properties.ab; if (!a) return;
-      showTip(ev, `<b>${state.names[a]}</b>${fmt(ACRES[a] ?? 0)} acres of apples<br>${storeCount.get(a) ?? 0} Apple Stores · ${orchCount.get(a) ?? 0} notable orchards`); })
+      const n = storeCount.get(a) ?? 0;
+      showTip(ev, `<b>${state.names[a]}</b>${n} Apple Store${n === 1 ? "" : "s"} · ${(n / (POP[a]/1e6)).toFixed(2)} per million people<br>${fmt(ACRES[a] ?? 0)} orchard acres · ${(POP[a]/1e6).toFixed(1)}M people`); })
     .on("mouseleave", hideTip)
     .on("click", (ev, f) => { if (ev.defaultPrevented) return; const a = f.properties.ab; if (a) setStateFilter(state.st === a ? "" : a); });
 
   const placed = arr => arr.map(d => ({...d, p: projection([d.lng, d.lat])})).filter(d => d.p);
-  gOrch.selectAll("rect").data(placed(ORCHARDS)).join("rect")
-    .attr("transform", d => `translate(${d.p[0]},${d.p[1]}) rotate(45)`).attr("rx", 1)
-    .attr("fill", css("--color-accent-2-800")).attr("stroke", css("--color-neutral-100")).style("cursor","pointer")
-    .on("mousemove", (ev, d) => showTip(ev, `<b>${d.name}</b>${d.city}, ${d.st} · orchard`)).on("mouseleave", hideTip)
+  const APPLE = "M18.237 21A15 15 0 0 0 22 11a6 6 0 0 0-10-4.472A6 6 0 0 0 2 11a15.1 15.1 0 0 0 3.763 10 3 3 0 0 0 3.648.648 5.5 5.5 0 0 1 5.178 0A3 3 0 0 0 18.237 21";
+  gOrch.selectAll("g.apple").data(placed(ORCHARDS)).join(en => { const g = en.append("g").attr("class","apple");
+      g.append("path").attr("d", APPLE).attr("fill","none").attr("stroke", css("--color-neutral-100")).attr("stroke-linejoin","round").attr("stroke-linecap","round");
+      g.append("path").attr("d", APPLE).attr("fill", css("--apple")).attr("stroke", css("--apple")).attr("stroke-linejoin","round").attr("stroke-linecap","round");
+      return g; })
+    .style("cursor","pointer")
+    .on("mousemove", (ev, d) => showTip(ev, `<b>${d.name}</b>${d.city}, ${d.st} · pick-your-own orchard`)).on("mouseleave", hideTip)
     .on("click", (ev, d) => { ev.stopPropagation(); select(d); });
-  gStores.selectAll("circle").data(placed(STORES)).join("circle")
-    .attr("cx", d => d.p[0]).attr("cy", d => d.p[1])
-    .attr("fill", css("--color-accent")).attr("stroke", css("--color-neutral-100")).style("cursor","pointer")
+  gStores.selectAll("rect").data(placed(STORES)).join("rect")
+    .attr("transform", d => `translate(${d.p[0]},${d.p[1]}) rotate(45)`).attr("rx", 0.8)
+    .attr("fill", css("--color-text")).attr("stroke", css("--color-neutral-100")).style("cursor","pointer")
     .on("mousemove", (ev, d) => showTip(ev, `<b>${d.name}</b>${d.city}, ${d.st} · Apple Store`)).on("mouseleave", hideTip)
     .on("click", (ev, d) => { ev.stopPropagation(); select(d); });
   applyStyles(); sizeMarks();
 }
 
+function highlight(ab) {
+  state.hover = ab;
+  gHi.selectAll("path").data(features.filter(f => f.properties.ab === ab)).join("path").attr("d", path)
+    .attr("fill", "none").attr("stroke", css("--color-text")).attr("stroke-linejoin", "round").attr("stroke-width", 2.2/k);
+}
 function applyStyles() {
   const L = state.layers, st = state.st;
-  gStates.selectAll("path").attr("fill", f => L.density ? color(ACRES[f.properties.ab] ?? 0) : css("--color-neutral-200"))
+const S = SHADES[state.shade];
+  gStates.selectAll("path").attr("fill", f => S ? S.scale(S.v(f.properties.ab)) : css("--color-neutral-200"))
     .attr("opacity", f => !st || f.properties.ab === st ? 1 : 0.35);
-  gStores.attr("display", L.stores ? null : "none").selectAll("circle").attr("opacity", d => !st || d.st === st ? 1 : 0.2);
-  gOrch.attr("display", L.orchards ? null : "none").selectAll("rect").attr("opacity", d => !st || d.st === st ? 1 : 0.2);
-  document.getElementById("legend").style.display = L.density ? "" : "none";
+  gStores.attr("display", L.stores ? null : "none").selectAll("rect").attr("opacity", d => !st || d.st === st ? 1 : 0.2);
+  gOrch.attr("display", L.orchards ? null : "none").selectAll("g.apple").attr("opacity", d => !st || d.st === st ? 1 : 0.2);
+renderLegend(); highlight(state.hover);
+  document.querySelectorAll("#shadeTabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.shade === state.shade));
   document.querySelectorAll(".chip").forEach(c => c.setAttribute("aria-pressed", L[c.dataset.layer]));
 }
 
 function zoomToState(ab) {
-  const t = svg.transition().duration(650);
+  const t = move();
   if (!ab) return zoom.transform(t, d3.zoomIdentity);
   const f = features.find(f => f.properties.ab === ab); if (!f) return;
   const [[x0,y0],[x1,y1]] = path.bounds(f);
@@ -301,15 +378,28 @@ function zoomToState(ab) {
 }
 function zoomToPoint(lat, lng, s = 5) {
   const p = projection([lng, lat]); if (!p) return;
-  zoom.transform(svg.transition().duration(650), d3.zoomIdentity.translate(W/2, H/2).scale(s).translate(-p[0], -p[1]));
+  zoom.transform(move(), d3.zoomIdentity.translate(W/2, H/2).scale(s).translate(-p[0], -p[1]));
 }
 
 function setStateFilter(ab) {
-  state.st = ab; state.sel = null; document.getElementById("stateSel").value = ab;
+  state.st = ab;
+  if (ab) state.placeTab = STORES.some(s => s.st === ab) ? "stores" : "orchards"; state.sel = null; document.getElementById("stateSel").value = ab;
   applyStyles(); zoomToState(ab); renderAside();
 }
 
-function select(d) { state.sel = d; renderAside(); }
+function drawSel() {
+  const d = state.sel;
+  if (d) { d._src = d._src || null;
+    const g = d.type === "store" ? gStores.selectAll("rect") : gOrch.selectAll("g.apple");
+    const m = g.filter(x => x.name === d.name && x.lat === d.lat); m.raise();
+    d._src = m.datum() ?? null;
+    sizeMarks();
+    if (!REDUCED) { const isStore = d.type === "store", el = isStore ? m : m.select("path");
+      const w = +el.attr("stroke-width"); el.attr("stroke-width", isStore ? 1/k : w * 0.6).transition().duration(200).ease(d3.easeCubicOut).attr("stroke-width", w); }
+    return; }
+  sizeMarks();
+}
+function select(d) { state.sel = d; drawSel(); renderAside(); }
 
 function setYou(p, label) {
   state.you = {...p, label}; state.sel = null;
@@ -319,7 +409,7 @@ function setYou(p, label) {
   if (pp) {
     [ns.x, no.x].forEach((t, i) => { const q = projection([t.lng, t.lat]); if (!q) return;
       gLines.append("line").attr("x1", pp[0]).attr("y1", pp[1]).attr("x2", q[0]).attr("y2", q[1])
-        .attr("stroke", i ? css("--color-accent-2-800") : css("--color-accent-700")).attr("stroke-linecap","round"); });
+        .attr("stroke", i ? css("--color-accent-600") : css("--color-text")).attr("stroke-linecap","round"); });
     gYou.append("circle").attr("cx", pp[0]).attr("cy", pp[1]).attr("fill", css("--color-text")).attr("opacity", .12);
     gYou.append("circle").attr("cx", pp[0]).attr("cy", pp[1]).attr("fill", css("--color-text")).attr("stroke", css("--color-neutral-100"));
     const far = Math.max(ns.d, no.d);
@@ -328,91 +418,136 @@ function setYou(p, label) {
   sizeMarks(); renderAside();
 }
 
-function bars(rows, key, max, col, fmtv) {
-  return `<div class="rank">${rows.map(r => `<button class="row" data-st="${r.st}"><span class="ab">${r.st}</span>
-    <span class="bar"><i style="width:${Math.max(2, r[key]/max*100)}%;background:${col}"></i></span><span class="v">${fmtv(r[key])}</span></button>`).join("")}</div>`;
+function bars(rows, max, col, fmtv, avg) {
+  return `<div class="rank">${rows.map((r, i) => `<button style="--i:${i}" class="row${r.v ? "" : " zero"}" data-st="${r.st}" title="${state.names[r.st]}"><span class="ab">${r.st}</span>
+    <span class="bar"><i style="width:${r.v ? Math.max(2, r.v/max*100) : 0}%;background:${col}"></i>${avg != null ? `<b style="left:${avg/max*100}%"></b>` : ""}</span><span class="v">${fmtv(r.v)}</span></button>`).join("")}</div>`;
 }
 
 function nearCard(from, title, kicker) {
-  const ns = nearest(from, STORES.filter(s => s !== from)), no = nearest(from, ORCHARDS.filter(o => o !== from));
-  return `<div class="card elev-sm">
+  const same = x => x.name === from.name && x.lat === from.lat && x.lng === from.lng;
+  const ns = nearest(from, STORES.filter(s => !same(s))), no = nearest(from, ORCHARDS.filter(o => !same(o)));
+  return `<button class="btn btn-ghost btn-icon x" data-act="clear" aria-label="Close">✕</button>
     <div class="card-kicker">${kicker}</div>
     <div class="card-title">${title}</div>
+    <div style="font-size:12px;font-weight:700;color:var(--color-neutral-800)">Nearby:</div>
     <div class="near">
       <div><span class="sw sw-store"></span><span>${ns.x.name}<br><span class="text-muted">${ns.x.city}, ${ns.x.st}</span></span><span class="d">${fmt(Math.round(ns.d))} mi</span></div>
       <div><span class="sw sw-orch"></span><span>${no.x.name}<br><span class="text-muted">${no.x.city}, ${no.x.st}</span></span><span class="d">${fmt(Math.round(no.d))} mi</span></div>
     </div>
-    <button class="btn btn-ghost" data-act="clear" style="align-self:flex-start">Clear</button>
-  </div>`;
+`;
 }
 
 function renderAside() {
   const el = document.getElementById("aside"), st = state.st;
   let html = "";
-  if (state.sel) {
-    const d = state.sel;
-    html += nearCard(d, d.name, `${d.type === "store" ? "Apple Store" : "Orchard"} · ${d.city}, ${d.st} — nearest of each`);
-  } else if (state.you) {
-    html += nearCard(state.you, state.you.label, "Nearest to you");
-  }
+  const mc = document.getElementById("mapcard"), d = state.sel;
+  mc.innerHTML = d ? nearCard(d, d.name, `${d.type === "store" ? "Apple Store" : "Pick-your-own orchard"} · ${d.city}, ${d.st}`)
+    : state.you ? nearCard(state.you, state.you.label, "Nearest to you") : "";
+  const key = d ? d.name + d.lat : state.you ? state.you.label + state.you.lat : "";
+  mc.hidden = !key;
+  if (key && key !== mc._key) { mc.classList.remove("in"); void mc.offsetWidth; mc.classList.add("in"); }
+  mc._key = key;
 
   if (!st) {
-    const rows = Object.keys(state.names).map(a => ({st:a, stores: storeCount.get(a) ?? 0, acres: ACRES[a] ?? 0}));
-    const topS = [...rows].sort((a,b) => b.stores - a.stores).slice(0, 10);
-    const topA = [...rows].sort((a,b) => b.acres - a.acres).slice(0, 10);
-    const wa = ACRES.WA / totalAcres, waS = storeCount.get("WA"), caS = storeCount.get("CA");
-    const topStoreStates = topS.slice(0,4).reduce((s,r)=>s+r.stores,0) / STORES.length;
+    const abs = Object.keys(state.names), sc = a => storeCount.get(a) ?? 0;
+    const byAcres = [...abs].sort((a,b) => ACRES[b]-ACRES[a]);
+    const top3 = d3.sum(byAcres.slice(0,3), a => ACRES[a]) / totalAcres;
+    const none = abs.filter(a => !sc(a));
+    const M = {
+      stores: { label: "Apple Stores", v: sc, f: String, col: css("--color-text") },
+      acres: { label: "Orchard acres", v: a => ACRES[a] ?? 0, f: short, col: css("--color-accent-2-600") },
+      spm: { label: "Stores per million people", v: a => sc(a) / (POP[a]/1e6), f: v => v.toFixed(2), col: css("--color-text"), avg: natSPM },
+      aps: { label: "Orchard acres per store", v: a => sc(a) ? (ACRES[a] ?? 0) / sc(a) : 0, f: v => v ? short(Math.round(v)) : "no store", col: css("--color-accent-2-600"), avg: natAPS }
+    };
+    const m = M[state.metric];
+    const rows = abs.map(a => ({st: a, v: m.v(a)})).sort((a,b) => b.v - a.v);
+    const name = a => state.names[a];
+    const caps = {
+      stores: `${name(rows[0].st)} has <strong>${rows[0].v}</strong> stores, ${Math.round(rows[0].v/STORES.length*100)}% of the total. ${none.length} states have none.`,
+      acres: `Washington grows <strong>${Math.round(ACRES.WA/totalAcres*100)}%</strong> of U.S. apple acreage. The top three states grow ${Math.round(top3*100)}%.`,
+      spm: `The tick marks the U.S. average of <strong>${natSPM.toFixed(2)}</strong> stores per million people. Population explains most of the store map.`,
+      aps: `Nationally there are about <strong>${fmt(Math.round(natAPS/10)*10)}</strong> orchard acres per Apple Store. In ${name(rows[0].st)} it is ${fmt(Math.round(rows[0].v))}.`
+    };
     html += `<div class="stats">
-      <div class="stat store"><div class="n">${STORES.length}</div><div class="l">Apple Stores</div></div>
-      <div class="stat orch"><div class="n">${short(totalAcres)}</div><div class="l">acres of apple orchards</div></div>
+      <div class="stat store"><div class="n">${STORES.length}</div><div class="l">Apple Stores</div><div class="ctx">${natSPM.toFixed(2)} per million people</div></div>
+      <div class="stat orch"><div class="n">${short(totalAcres)}</div><div class="l">acres of apple orchards</div><div class="ctx">${Math.round(top3*100)}% in WA, NY and MI</div></div>
     </div>
-    <p class="story">Washington grows about <strong>${Math.round(wa*100)}%</strong> of the country’s apple acreage and has <strong>${waS}</strong> Apple Stores. California, New York, Florida and Texas hold <strong>${Math.round(topStoreStates*100)}%</strong> of all stores. Only California and New York rank in the top five for both.</p>
     <div class="panel">
-      <div class="tabs" role="tablist">
-        <button role="tab" data-tab="stores" aria-selected="${state.tab === "stores"}">Most stores</button>
-        <button role="tab" data-tab="acres" aria-selected="${state.tab === "acres"}">Most orchard acres</button>
+      <div class="compare-head"><h4>Compare states</h4>
+        <select class="input" id="metricSel" aria-label="Compare by">${Object.entries(M).map(([k,x]) => `<option value="${k}"${k === state.metric ? " selected" : ""}>${x.label}</option>`).join("")}</select>
       </div>
-      ${state.tab === "stores" ? bars(topS, "stores", topS[0].stores, css("--color-accent"), String)
-        : bars(topA, "acres", topA[0].acres, css("--color-accent-2-600"), short)}
+      <p class="caption">${caps[state.metric]}</p>
+      ${bars(state.showAll ? rows : rows.slice(0, 10), rows[0].v, m.col, m.f, m.avg)}
+      <button class="btn btn-ghost" data-act="more" style="margin-top:var(--space-2)">${state.showAll ? "Show top 10" : `Show all ${rows.length} states`}</button>
     </div>`;
   } else {
     const ss = STORES.filter(s => s.st === st), oo = ORCHARDS.filter(o => o.st === st);
+    const pt = state.placeTab, shown = pt === "stores" ? ss : oo;
     const acres = ACRES[st] ?? 0;
     const rankA = Object.keys(ACRES).sort((a,b) => ACRES[b]-ACRES[a]).indexOf(st) + 1;
     const rankS = [...new Set(Object.keys(state.names))].sort((a,b) => (storeCount.get(b)??0)-(storeCount.get(a)??0)).indexOf(st) + 1;
     html += `<div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap"><h3 style="margin:0">${state.names[st]}</h3>
       <button class="btn btn-ghost" data-act="all">All states</button></div>
     <div class="stats">
-      <div class="stat store"><div class="n">${ss.length}</div><div class="l">Apple Stores${ss.length ? ` · #${rankS} nationally` : ""}</div></div>
-      <div class="stat orch"><div class="n">${short(acres)}</div><div class="l">acres of apples${acres ? ` · #${rankA}` : ""}</div></div>
+      <div class="stat store"><div class="n">${ss.length}</div><div class="l">Apple Stores${ss.length ? ` · #${rankS} nationally` : ""}</div><div class="ctx">${(ss.length/(POP[st]/1e6)).toFixed(2)} per million people (U.S. ${natSPM.toFixed(2)})</div></div>
+      <div class="stat orch"><div class="n">${short(acres)}</div><div class="l">acres of apples${acres ? ` · #${rankA} nationally` : ""}</div><div class="ctx">${(acres/totalAcres*100).toFixed(1)}% of U.S. acreage</div></div>
     </div>
-    <p class="story">${acres && ss.length ? `About <strong>${fmt(Math.round(acres / ss.length))}</strong> acres of apple orchard for every Apple Store.` : ss.length ? "Stores, but almost no commercial apple orchards." : acres ? "Orchards, but no Apple Store." : ""}
-      ${(acres/totalAcres*100).toFixed(1)}% of U.S. apple acreage.</p>
+    <p class="story">${acres && ss.length ? `About <strong>${fmt(Math.round(acres / ss.length))}</strong> orchard acres per Apple Store (U.S. average ${fmt(Math.round(natAPS/10)*10)}).` : ss.length ? "Stores, but almost no commercial apple orchards." : acres ? "Orchards, but no Apple Store." : ""}</p>
     <div class="panel">
-      <h4>Places in ${st}</h4>
-      <div class="list">${[...ss, ...oo].map((d,i) => `<button data-i="${i}"><span class="sw ${d.type === "store" ? "sw-store" : "sw-orch"}"></span>${d.name}<span class="c">${d.city}</span></button>`).join("") || `<span class="text-muted" style="padding:4px 8px">No mapped places.</span>`}</div>
+      <div class="tabs" role="tablist" style="margin-bottom:var(--space-2)">
+        <button role="tab" data-place="stores" aria-selected="${pt === "stores"}">Apple Stores (${ss.length})</button>
+        <button role="tab" data-place="orchards" aria-selected="${pt === "orchards"}">Pick-your-own (${oo.length})</button>
+      </div>
+      <div class="list">${shown.map((d,i) => `<button data-i="${i}" aria-current="${d === state.sel}"><span class="sw ${d.type === "store" ? "sw-store" : "sw-orch"}"></span>${d.name}<span class="c">${d.city}</span></button>`).join("") || `<span class="text-muted" style="padding:4px 8px">${pt === "stores" ? "No Apple Stores in this state." : "No pick-your-own orchards mapped in this state."}</span>`}</div>
     </div>`;
-    el._list = [...ss, ...oo];
+    el._list = shown;
   }
   el.innerHTML = html;
+  const view = st || "all";
+  el.classList.toggle("enter", view !== el._view);
+  const barKey = view + state.metric + state.showAll;
+  el.querySelector(".rank")?.parentElement.classList.toggle("grow", barKey !== el._barKey);
+  el._view = view; el._barKey = barKey;
+  if (!state.sel) sizeMarks();
+  fitList();
 }
+function fitList() {
+  const list = document.querySelector("#aside .list"); if (!list) return;
+  const map = document.getElementById("mapwrap").getBoundingClientRect();
+  list.style.maxHeight = window.innerWidth > 980 ? Math.max(160, map.bottom - list.getBoundingClientRect().top) + "px" : "420px";
+}
+window.addEventListener("resize", fitList);
 
 document.getElementById("aside").addEventListener("click", e => {
   const b = e.target.closest("button"); if (!b) return;
   const el = e.currentTarget;
-  if (b.dataset.tab) { state.tab = b.dataset.tab; renderAside(); }
+  if (b.dataset.place) { state.placeTab = b.dataset.place; renderAside(); }
   else if (b.dataset.st) setStateFilter(b.dataset.st);
+  else if (b.dataset.act === "more") { state.showAll = !state.showAll; renderAside(); }
   else if (b.dataset.act === "all") setStateFilter("");
   else if (b.dataset.act === "clear") { state.sel = null; state.you = null; gYou.selectAll("*").remove(); gLines.selectAll("*").remove(); renderAside(); }
   else if (b.dataset.i != null) { const d = el._list[+b.dataset.i]; select(d); zoomToPoint(d.lat, d.lng, 7); }
 });
 
+const aside = document.getElementById("aside");
+document.getElementById("mapcard").addEventListener("click", e => {
+  if (e.target.closest("[data-act=clear]")) { state.sel = null; state.you = null; gYou.selectAll("*").remove(); gLines.selectAll("*").remove(); drawSel(); renderAside(); }
+});
+aside.addEventListener("change", e => { if (e.target.id === "metricSel") { state.metric = e.target.value; renderAside(); } });
+aside.addEventListener("mouseover", e => { const r = e.target.closest(".row"); if (r && r.dataset.st !== state.hover) highlight(r.dataset.st); });
+aside.addEventListener("mouseleave", () => highlight(""));
+aside.addEventListener("focusin", e => { const r = e.target.closest(".row"); if (r) highlight(r.dataset.st); });
+document.querySelectorAll("#shadeTabs button").forEach(b => b.addEventListener("click", () => {
+  state.shade = b.dataset.shade;
+  if (b.dataset.shade === "spm" && state.metric !== "spm") { state.metric = "spm"; renderAside(); }
+  applyStyles();
+}));
 document.querySelectorAll(".chip").forEach(c => c.addEventListener("click", () => {
   state.layers[c.dataset.layer] = !state.layers[c.dataset.layer]; applyStyles();
 }));
 document.getElementById("stateSel").addEventListener("change", e => setStateFilter(e.target.value));
-document.getElementById("zin").onclick = () => svg.transition().call(zoom.scaleBy, 1.6);
-document.getElementById("zout").onclick = () => svg.transition().call(zoom.scaleBy, 1/1.6);
+document.getElementById("zin").onclick = () => move(250).call(zoom.scaleBy, 1.6);
+document.getElementById("zout").onclick = () => move(250).call(zoom.scaleBy, 1/1.6);
 document.getElementById("zreset").onclick = () => setStateFilter("");
 
 const msg = t => document.getElementById("msg").textContent = t || "";
