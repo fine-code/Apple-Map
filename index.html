@@ -486,8 +486,9 @@ function renderAside() {
     const acres = ACRES[st] ?? 0;
     const rankA = Object.keys(ACRES).sort((a,b) => ACRES[b]-ACRES[a]).indexOf(st) + 1;
     const rankS = [...new Set(Object.keys(state.names))].sort((a,b) => (storeCount.get(b)??0)-(storeCount.get(a)??0)).indexOf(st) + 1;
-    html += `<div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap"><h3 style="margin:0">${state.names[st]}</h3>
-      <button class="btn btn-ghost" data-act="all">All states</button></div>
+    html += `<div style="display:grid;gap:var(--space-2);justify-items:start">
+      <button class="btn btn-secondary" data-act="all" style="padding:6px 14px 6px 10px;font-size:13px;display:inline-flex;align-items:center;gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>Back to all states</button>
+      <h3 style="margin:0">${state.names[st]}</h3></div>
     <div class="stats">
       <div class="stat store"><div class="n">${ss.length}</div><div class="l">Apple Stores${ss.length ? ` · #${rankS} nationally` : ""}</div><div class="ctx">${(ss.length/(POP[st]/1e6)).toFixed(2)} per million people (U.S. ${natSPM.toFixed(2)})</div></div>
       <div class="stat orch"><div class="n">${short(acres)}</div><div class="l">acres of apples${acres ? ` · #${rankA} nationally` : ""}</div><div class="ctx">${(acres/totalAcres*100).toFixed(1)}% of U.S. acreage</div></div>
